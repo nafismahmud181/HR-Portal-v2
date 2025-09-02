@@ -1,0 +1,348 @@
+{
+    "designSystem": {
+      "name": "Modern Form Interface",
+      "version": "1.0.0",
+      "description": "Clean, professional form design system with split-panel layout and progress tracking"
+    },
+    "layout": {
+      "structure": "split_panel",
+      "orientation": "horizontal",
+      "leftPanel": {
+        "purpose": "form_input",
+        "width": "40%",
+        "padding": "24px",
+        "backgroundColor": "#ffffff"
+      },
+      "rightPanel": {
+        "purpose": "preview_display",
+        "width": "60%",
+        "padding": "32px",
+        "backgroundColor": "#f8f9fa"
+      }
+    },
+    "typography": {
+      "primary": {
+        "fontFamily": "system-ui, -apple-system, sans-serif",
+        "fontWeight": {
+          "light": 300,
+          "regular": 400,
+          "medium": 500,
+          "semibold": 600,
+          "bold": 700
+        }
+      },
+      "hierarchy": {
+        "pageTitle": {
+          "fontSize": "24px",
+          "fontWeight": 600,
+          "lineHeight": "1.2",
+          "color": "#1a1a1a"
+        },
+        "sectionTitle": {
+          "fontSize": "18px",
+          "fontWeight": 600,
+          "lineHeight": "1.3",
+          "color": "#1a1a1a"
+        },
+        "fieldLabel": {
+          "fontSize": "14px",
+          "fontWeight": 500,
+          "lineHeight": "1.4",
+          "color": "#374151"
+        },
+        "inputText": {
+          "fontSize": "16px",
+          "fontWeight": 400,
+          "lineHeight": "1.5",
+          "color": "#1f2937"
+        },
+        "helperText": {
+          "fontSize": "12px",
+          "fontWeight": 400,
+          "lineHeight": "1.4",
+          "color": "#6b7280"
+        }
+      }
+    },
+    "colors": {
+      "palette": {
+        "primary": {
+          "50": "#fef7ed",
+          "500": "#f97316",
+          "600": "#ea580c",
+          "700": "#c2410c"
+        },
+        "neutral": {
+          "50": "#f9fafb",
+          "100": "#f3f4f6",
+          "200": "#e5e7eb",
+          "300": "#d1d5db",
+          "400": "#9ca3af",
+          "500": "#6b7280",
+          "600": "#4b5563",
+          "700": "#374151",
+          "800": "#1f2937",
+          "900": "#111827"
+        },
+        "semantic": {
+          "success": "#10b981",
+          "warning": "#f59e0b",
+          "error": "#ef4444",
+          "info": "#3b82f6"
+        }
+      },
+      "usage": {
+        "background": "#ffffff",
+        "surface": "#f8f9fa",
+        "border": "#e5e7eb",
+        "text": {
+          "primary": "#1a1a1a",
+          "secondary": "#374151",
+          "muted": "#6b7280"
+        },
+        "accent": "#f97316"
+      }
+    },
+    "spacing": {
+      "base": 4,
+      "scale": {
+        "xs": "4px",
+        "sm": "8px",
+        "md": "12px",
+        "lg": "16px",
+        "xl": "20px",
+        "2xl": "24px",
+        "3xl": "32px",
+        "4xl": "48px"
+      },
+      "formElements": {
+        "fieldSpacing": "20px",
+        "sectionSpacing": "32px",
+        "inputPadding": "12px 16px",
+        "buttonPadding": "12px 24px"
+      }
+    },
+    "components": {
+      "header": {
+        "height": "60px",
+        "backgroundColor": "#ffffff",
+        "borderBottom": "1px solid #e5e7eb",
+        "padding": "0 24px",
+        "logo": {
+          "display": "flex",
+          "alignItems": "center",
+          "gap": "8px",
+          "iconSize": "24px",
+          "iconColor": "#f97316"
+        }
+      },
+      "progressIndicator": {
+        "position": "below_header",
+        "format": "section_fraction",
+        "fontSize": "14px",
+        "color": "#6b7280",
+        "completionBar": {
+          "height": "4px",
+          "backgroundColor": "#e5e7eb",
+          "fillColor": "#f97316",
+          "borderRadius": "2px"
+        }
+      },
+      "formFields": {
+        "container": {
+          "marginBottom": "20px"
+        },
+        "label": {
+          "display": "block",
+          "marginBottom": "6px",
+          "fontSize": "14px",
+          "fontWeight": 500,
+          "color": "#374151"
+        },
+        "input": {
+          "width": "100%",
+          "padding": "12px 16px",
+          "border": "1px solid #d1d5db",
+          "borderRadius": "6px",
+          "fontSize": "16px",
+          "backgroundColor": "#ffffff",
+          "transition": "border-color 0.15s ease",
+          "focus": {
+            "borderColor": "#f97316",
+            "outline": "none",
+            "boxShadow": "0 0 0 3px rgba(249, 115, 22, 0.1)"
+          }
+        },
+        "select": {
+          "appearance": "none",
+          "backgroundImage": "chevron-down-icon",
+          "backgroundPosition": "right 12px center",
+          "backgroundRepeat": "no-repeat",
+          "paddingRight": "40px"
+        },
+        "helperText": {
+          "marginTop": "4px",
+          "fontSize": "12px",
+          "color": "#6b7280"
+        }
+      },
+      "buttons": {
+        "primary": {
+          "backgroundColor": "#1f2937",
+          "color": "#ffffff",
+          "padding": "12px 24px",
+          "borderRadius": "6px",
+          "fontSize": "16px",
+          "fontWeight": 500,
+          "border": "none",
+          "cursor": "pointer",
+          "width": "100%",
+          "transition": "background-color 0.15s ease",
+          "hover": {
+            "backgroundColor": "#111827"
+          }
+        },
+        "secondary": {
+          "backgroundColor": "transparent",
+          "color": "#374151",
+          "border": "1px solid #d1d5db",
+          "padding": "12px 24px",
+          "borderRadius": "6px",
+          "fontSize": "16px",
+          "fontWeight": 500
+        }
+      },
+      "previewPanel": {
+        "backgroundColor": "#f8f9fa",
+        "padding": "32px",
+        "document": {
+          "backgroundColor": "#ffffff",
+          "borderRadius": "8px",
+          "padding": "40px",
+          "boxShadow": "0 1px 3px rgba(0, 0, 0, 0.1)",
+          "maxWidth": "600px",
+          "margin": "0 auto"
+        },
+        "documentHeader": {
+          "textAlign": "center",
+          "marginBottom": "32px",
+          "title": {
+            "fontSize": "20px",
+            "fontWeight": 600,
+            "color": "#1a1a1a",
+            "textTransform": "uppercase",
+            "letterSpacing": "0.5px"
+          }
+        },
+        "signature": {
+          "textAlign": "right",
+          "marginTop": "48px",
+          "fontFamily": "cursive",
+          "fontSize": "18px",
+          "color": "#1a1a1a"
+        }
+      }
+    },
+    "interactions": {
+      "formValidation": {
+        "realtime": true,
+        "errorStates": {
+          "borderColor": "#ef4444",
+          "textColor": "#ef4444",
+          "backgroundColor": "#fef2f2"
+        }
+      },
+      "progressTracking": {
+        "updateOnFieldComplete": true,
+        "animateTransitions": true,
+        "showPercentage": true
+      },
+      "livePreview": {
+        "updateOnInput": true,
+        "highlightChanges": true,
+        "tooltips": {
+          "enabled": true,
+          "backgroundColor": "#f97316",
+          "textColor": "#ffffff",
+          "borderRadius": "4px",
+          "padding": "8px 12px",
+          "fontSize": "12px"
+        }
+      }
+    },
+    "patterns": {
+      "formFlow": {
+        "structure": "linear_progression",
+        "sections": {
+          "naming": "descriptive_titles",
+          "numbering": "section_x_of_y",
+          "timeEstimate": "approx_x_min"
+        }
+      },
+      "fieldGrouping": {
+        "strategy": "logical_sections",
+        "spacing": "consistent_vertical",
+        "labeling": "above_input"
+      },
+      "responsiveDesign": {
+        "breakpoints": {
+          "mobile": "768px",
+          "tablet": "1024px",
+          "desktop": "1200px"
+        },
+        "mobileStrategy": "stack_panels",
+        "tabletStrategy": "maintain_split"
+      }
+    },
+    "accessibility": {
+      "contrast": {
+        "textBackground": "4.5:1 minimum",
+        "interactiveElements": "3:1 minimum"
+      },
+      "focusManagement": {
+        "visibleOutlines": true,
+        "tabOrder": "logical_flow",
+        "skipLinks": "when_needed"
+      },
+      "semanticMarkup": {
+        "labels": "explicit_association",
+        "fieldsets": "grouped_inputs",
+        "headings": "hierarchical_structure"
+      }
+    },
+    "brandElements": {
+      "logo": {
+        "type": "icon_plus_text",
+        "iconStyle": "geometric_rounded",
+        "iconColor": "#f97316",
+        "textWeight": 600,
+        "positioning": "left_aligned"
+      },
+      "accentColor": "#f97316",
+      "personality": "professional_approachable",
+      "tone": "clean_efficient"
+    },
+    "implementation": {
+      "technologies": [
+        "HTML5",
+        "CSS3",
+        "JavaScript",
+        "Form validation libraries",
+        "CSS Grid/Flexbox"
+      ],
+      "frameworks": {
+        "recommended": [
+          "React + Tailwind CSS",
+          "Vue + CSS Modules",
+          "Vanilla JS + CSS Custom Properties"
+        ]
+      },
+      "keyFeatures": [
+        "Real-time form validation",
+        "Live document preview",
+        "Progress indication",
+        "Responsive design",
+        "Accessibility compliance"
+      ]
+    }
+  }
