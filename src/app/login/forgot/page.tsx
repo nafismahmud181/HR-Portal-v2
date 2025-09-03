@@ -1,14 +1,28 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
+import { useRouter } from "next/navigation";
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
   const [message, setMessage] = useState<string>("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace("/admin");
+      } else {
+        setCheckingAuth(false);
+      }
+    });
+    return () => unsub();
+  }, [router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,6 +36,10 @@ export default function ForgotPasswordPage() {
       setStatus("error");
       setMessage(err instanceof FirebaseError ? err.message : "Unable to send reset email.");
     }
+  }
+
+  if (checkingAuth) {
+    return null;
   }
 
   return (

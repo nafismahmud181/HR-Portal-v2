@@ -1,6 +1,39 @@
+"use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.replace("/login");
+      } else {
+        setCheckingAuth(false);
+      }
+    });
+    return () => unsub();
+  }, [router]);
+
+  async function handleLogout() {
+    try {
+      setSigningOut(true);
+      await signOut(auth);
+      router.replace("/login");
+    } finally {
+      setSigningOut(false);
+    }
+  }
+  if (checkingAuth) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen grid grid-cols-[240px_1fr] bg-[#ffffff] text-[#1a1a1a]">
       <aside className="border-r border-[#e5e7eb] p-4">
@@ -26,6 +59,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
           ))}
         </nav>
+        <div className="mt-6 pt-4 border-t border-[#e5e7eb]">
+          <button
+            onClick={handleLogout}
+            disabled={signingOut}
+            className="w-full text-left px-2 py-2 rounded border border-[#d1d5db] hover:bg-[#f9fafb] text-[14px]"
+          >
+            {signingOut ? "Logging out…" : "Log out"}
+          </button>
+        </div>
       </aside>
       <main>{children}</main>
     </div>
