@@ -3,12 +3,14 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 
 export default function InviteSetPasswordPage() {
   const params = useSearchParams();
   const router = useRouter();
   const presetEmail = params.get("email") ?? "";
+  const presetOrg = params.get("orgId");
   const [email, setEmail] = useState(presetEmail);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +25,22 @@ export default function InviteSetPasswordPage() {
     setError("");
     setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      if (!presetOrg) throw new Error("Missing orgId in invite link");
+      // Optional: verify invite exists
+      const inviteRef = doc(db, "organizations", presetOrg, "invites", email);
+      const inviteSnap = await getDoc(inviteRef);
+      if (!inviteSnap.exists()) throw new Error("Invite not found or expired");
+
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
+
+      await setDoc(doc(db, "organizations", presetOrg, "users", uid), {
+        uid,
+        email,
+        role: "employee",
+        createdAt: serverTimestamp(),
+      });
+
       router.push("/employee");
     } catch (err: any) {
       setError(err?.message ?? "Unable to set password");

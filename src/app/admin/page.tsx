@@ -9,7 +9,7 @@ export default function AdminDashboardPage() {
         <section aria-label="Quick Actions" className="mt-10">
           <h2 className="text-[18px] font-semibold">Quick Actions</h2>
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <a href="#" className="rounded-lg border border-[#e5e7eb] p-4 hover:shadow-sm">
+            <a href="/admin/employees/invite" className="rounded-lg border border-[#e5e7eb] p-4 hover:shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-[#f97316]" />
                 <span className="text-[14px] font-medium">Invite Employee</span>
