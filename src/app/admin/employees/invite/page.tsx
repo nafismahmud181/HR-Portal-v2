@@ -50,7 +50,7 @@ export default function InviteEmployeePage() {
     const url = new URL(typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
     url.pathname = "/invite";
     url.searchParams.set("orgId", orgId);
-    url.searchParams.set("email", email);
+    url.searchParams.set("email", email.trim().toLowerCase());
     return url.toString();
   }, [orgId, email]);
 
@@ -66,8 +66,9 @@ export default function InviteEmployeePage() {
     setEmailSendStatus("idle");
     setEmailSendMessage("");
     try {
-      await setDoc(doc(db, "organizations", orgId, "invites", email), {
-        email,
+      const inviteEmail = email.trim().toLowerCase();
+      await setDoc(doc(db, "organizations", orgId, "invites", inviteEmail), {
+        email: inviteEmail,
         role,
         createdAt: serverTimestamp(),
       });

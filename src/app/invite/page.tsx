@@ -11,7 +11,7 @@ export default function InviteSetPasswordPage() {
   const router = useRouter();
   const presetEmail = params.get("email") ?? "";
   const presetOrg = params.get("orgId");
-  const [email, setEmail] = useState(presetEmail);
+  const [email, setEmail] = useState(presetEmail.toLowerCase());
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -26,18 +26,33 @@ export default function InviteSetPasswordPage() {
     setLoading(true);
     try {
       if (!presetOrg) throw new Error("Missing orgId in invite link");
-      // Optional: verify invite exists
-      const inviteRef = doc(db, "organizations", presetOrg, "invites", email);
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
+      // Verify invite now that the user is signed in (rules allow invitee to read)
+      const normalized = email.trim().toLowerCase();
+      const inviteRef = doc(db, "organizations", presetOrg, "invites", normalized);
       const inviteSnap = await getDoc(inviteRef);
       if (!inviteSnap.exists()) throw new Error("Invite not found or expired");
 
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = cred.user.uid;
-
       await setDoc(doc(db, "organizations", presetOrg, "users", uid), {
         uid,
-        email,
+        email: normalized,
         role: "employee",
+        createdAt: serverTimestamp(),
+      });
+
+      // Create employee profile in org directory
+      await setDoc(doc(db, "organizations", presetOrg, "employees", uid), {
+        employeeId: uid,
+        name: normalized.split("@")[0],
+        email: normalized,
+        department: "",
+        jobTitle: "",
+        manager: "",
+        hireDate: serverTimestamp(),
+        status: "Active",
+        location: "",
+        employeeType: "Full-time",
         createdAt: serverTimestamp(),
       });
 
