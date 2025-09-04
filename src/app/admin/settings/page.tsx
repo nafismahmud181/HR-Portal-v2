@@ -8,7 +8,6 @@ import {
   getDocs,
   limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   where,
@@ -21,7 +20,15 @@ type Department = {
   name: string;
   code?: string;
   description?: string;
-  organizationId: string;
+  organizationId?: string;
+  createdAt?: unknown;
+};
+
+type Role = {
+  id: string;
+  name: string;
+  code?: string;
+  description?: string;
   createdAt?: unknown;
 };
 
@@ -37,7 +44,13 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [listening, setListening] = useState(false);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
+
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [roleName, setRoleName] = useState("");
+  const [roleCode, setRoleCode] = useState("");
+  const [roleDescription, setRoleDescription] = useState("");
+  const [creatingRole, setCreatingRole] = useState(false);
 
   // Derive admin's organizationId by reading membership doc
   useEffect(() => {
@@ -70,11 +83,11 @@ export default function SettingsPage() {
     };
   }, []);
 
-  // Subscribe to departments for this organization
+  // Subscribe to departments for this organization (nested under organizations/{orgId}/departments)
   useEffect(() => {
-    if (!organizationId || listening) return;
-    const col = collection(db, "departments");
-    const q = query(col, where("organizationId", "==", organizationId));
+    if (!organizationId) return;
+    const col = collection(db, "organizations", organizationId, "departments");
+    const q = query(col);
     const unsub = onSnapshot(q, (snap) => {
       const rows = snap.docs
         .map((d: QueryDocumentSnapshot<DocumentData>) => ({
@@ -84,12 +97,29 @@ export default function SettingsPage() {
         .sort((a, b) => a.name.localeCompare(b.name));
       setDepartments(rows);
     });
-    setListening(true);
     return () => {
-      setListening(false);
       unsub();
     };
-  }, [db, organizationId, listening]);
+  }, [db, organizationId]);
+
+  // Subscribe to roles for the selected department
+  useEffect(() => {
+    if (!organizationId || !selectedDepartmentId) return;
+    const col = collection(db, "organizations", organizationId, "departments", selectedDepartmentId, "roles");
+    const q = query(col);
+    const unsub = onSnapshot(q, (snap) => {
+      const rows = snap.docs
+        .map((d: QueryDocumentSnapshot<DocumentData>) => ({
+          id: d.id,
+          ...(d.data() as Omit<Role, "id">),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setRoles(rows);
+    });
+    return () => {
+      unsub();
+    };
+  }, [db, organizationId, selectedDepartmentId]);
 
   const canSubmit = useMemo(() => {
     return !creating && !!organizationId && name.trim().length > 1;
@@ -107,13 +137,15 @@ export default function SettingsPage() {
     }
     try {
       setCreating(true);
-      await addDoc(collection(db, "departments"), {
+      const payload: Record<string, unknown> = {
         name: trimmedName,
-        code: code.trim() || undefined,
-        description: description.trim() || undefined,
-        organizationId,
         createdAt: serverTimestamp(),
-      });
+      };
+      const trimmedCode = code.trim();
+      if (trimmedCode) payload.code = trimmedCode;
+      const trimmedDescription = description.trim();
+      if (trimmedDescription) payload.description = trimmedDescription;
+      await addDoc(collection(db, "organizations", organizationId, "departments"), payload);
       setName("");
       setCode("");
       setDescription("");
@@ -123,6 +155,42 @@ export default function SettingsPage() {
       setError(message);
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleCreateRole(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    if (!organizationId || !selectedDepartmentId) return;
+    const trimmedName = roleName.trim();
+    if (trimmedName.length < 2) {
+      setError("Role name must be at least 2 characters.");
+      return;
+    }
+    try {
+      setCreatingRole(true);
+      const payload: Record<string, unknown> = {
+        name: trimmedName,
+        createdAt: serverTimestamp(),
+      };
+      const trimmedCode = roleCode.trim();
+      if (trimmedCode) payload.code = trimmedCode;
+      const trimmedDescription = roleDescription.trim();
+      if (trimmedDescription) payload.description = trimmedDescription;
+      await addDoc(
+        collection(db, "organizations", organizationId, "departments", selectedDepartmentId, "roles"),
+        payload
+      );
+      setRoleName("");
+      setRoleCode("");
+      setRoleDescription("");
+      setSuccess("Role created.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create role";
+      setError(message);
+    } finally {
+      setCreatingRole(false);
     }
   }
 
@@ -200,6 +268,102 @@ export default function SettingsPage() {
                         </p>
                       )}
                     </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSelectedDepartmentId(d.id)}
+                        className={`rounded-md border px-3 py-1.5 text-[12px] ${
+                          selectedDepartmentId === d.id
+                            ? "border-[#1f2937] text-[#1f2937]"
+                            : "border-[#d1d5db] text-[#374151] hover:bg-[#f9fafb]"
+                        }`}
+                      >
+                        {selectedDepartmentId === d.id ? "Selected" : "Manage roles"}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#e5e7eb] bg-white">
+          <div className="p-5 border-b border-[#e5e7eb]"><h2 className="text-[16px] font-semibold">Department Roles</h2></div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-[13px] text-[#374151]">Department</label>
+              <select
+                className="mt-1 w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#94a3b8]"
+                value={selectedDepartmentId}
+                onChange={(e) => setSelectedDepartmentId(e.target.value)}
+              >
+                <option value="">Select a department…</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleCreateRole}>
+              <div>
+                <label className="block text-[13px] text-[#374151]">Role name</label>
+                <input
+                  className="mt-1 w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#94a3b8]"
+                  placeholder="e.g., Senior Engineer"
+                  value={roleName}
+                  onChange={(e) => setRoleName(e.target.value)}
+                  disabled={!selectedDepartmentId}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[13px] text-[#374151]">Code (optional)</label>
+                <input
+                  className="mt-1 w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#94a3b8]"
+                  placeholder="e.g., SENG"
+                  value={roleCode}
+                  onChange={(e) => setRoleCode(e.target.value)}
+                  disabled={!selectedDepartmentId}
+                />
+              </div>
+              <div>
+                <label className="block text-[13px] text-[#374151]">Description (optional)</label>
+                <textarea
+                  className="mt-1 w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#94a3b8]"
+                  placeholder="Short description"
+                  rows={3}
+                  value={roleDescription}
+                  onChange={(e) => setRoleDescription(e.target.value)}
+                  disabled={!selectedDepartmentId}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={creatingRole || !selectedDepartmentId || roleName.trim().length < 2}
+                  className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#111827]"
+                >
+                  {creatingRole ? "Creating…" : "Create Role"}
+                </button>
+              </div>
+            </form>
+
+            {!selectedDepartmentId ? (
+              <p className="text-[13px] text-[#6b7280]">Select a department to view roles.</p>
+            ) : roles.length === 0 ? (
+              <p className="text-[13px] text-[#6b7280]">No roles yet.</p>
+            ) : (
+              <ul className="divide-y divide-[#e5e7eb]">
+                {roles.map((r) => (
+                  <li key={r.id} className="py-3">
+                    <p className="text-[14px] font-medium">{r.name}</p>
+                    {(r.code || r.description) && (
+                      <p className="text-[12px] text-[#6b7280]">
+                        {r.code ? `${r.code}` : null}
+                        {r.code && r.description ? " • " : null}
+                        {r.description ? r.description : null}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
