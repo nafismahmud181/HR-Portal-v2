@@ -3,20 +3,37 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { collectionGroup, getDocs, query, where } from "firebase/firestore";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.replace("/login");
-      } else {
-        setCheckingAuth(false);
+        return;
       }
+      try {
+        const cg = collectionGroup(db, "users");
+        const q = query(cg, where("uid", "==", user.uid));
+        const snap = await getDocs(q);
+        const role = !snap.empty ? (snap.docs[0].data() as { role?: string }).role : undefined;
+        if (role !== "admin") {
+          setNotFound(true);
+          setCheckingAuth(false);
+          return;
+        }
+      } catch {
+        setNotFound(true);
+        setCheckingAuth(false);
+        return;
+      }
+      setCheckingAuth(false);
     });
     return () => unsub();
   }, [router]);
@@ -32,6 +49,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
   if (checkingAuth) {
     return null;
+  }
+
+  if (notFound) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-[#ffffff] text-[#1a1a1a]">
+        <div className="text-center px-6">
+          <h1 className="text-[28px] font-semibold">404</h1>
+          <p className="mt-2 text-[14px] text-[#6b7280]">Page not found</p>
+          <button
+            className="mt-6 rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]"
+            onClick={() => router.replace("/employee")}
+          >
+            Go to employee dashboard
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
