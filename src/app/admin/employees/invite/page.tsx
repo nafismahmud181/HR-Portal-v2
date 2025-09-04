@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collectionGroup, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, collectionGroup, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 
 export default function InviteEmployeePage() {
   const [email, setEmail] = useState("");
@@ -10,18 +10,36 @@ export default function InviteEmployeePage() {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [emailSendStatus, setEmailSendStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [emailSendMessage, setEmailSendMessage] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
-      // Find an org where current user is admin (first one)
-      const cg = collectionGroup(db, "users");
-      const q = query(cg, where("uid", "==", user.uid), where("role", "==", "admin"));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const ref = snap.docs[0].ref;
-        const parentOrg = ref.parent.parent;
-        setOrgId(parentOrg ? parentOrg.id : null);
+      try {
+        // Find an org where current user is admin (first one)
+        const cg = collectionGroup(db, "users");
+        const q = query(cg, where("uid", "==", user.uid));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const ref = snap.docs[0].ref;
+          const parentOrg = ref.parent.parent;
+          setOrgId(parentOrg ? parentOrg.id : null);
+        } else {
+          // Fallback: find org where current user is the creator
+          const orgsCol = collection(db, "organizations");
+          const orgsQ = query(orgsCol, where("createdBy", "==", user.uid));
+          const orgsSnap = await getDocs(orgsQ);
+          if (!orgsSnap.empty) {
+            setOrgId(orgsSnap.docs[0].id);
+          } else {
+            setOrgId(null);
+          }
+        }
+      } catch (err: unknown) {
+        console.error("Failed to lookup admin membership via collectionGroup:", err);
+        setStatus("error");
+        setMessage(err instanceof Error ? err.message : "Permission error loading organization.");
       }
     });
     return () => unsub();
@@ -45,12 +63,35 @@ export default function InviteEmployeePage() {
     }
     setStatus("sending");
     setMessage("");
+    setEmailSendStatus("idle");
+    setEmailSendMessage("");
     try {
       await setDoc(doc(db, "organizations", orgId, "invites", email), {
         email,
         role,
         createdAt: serverTimestamp(),
       });
+      // Send email and show status
+      try {
+        setEmailSendStatus("sending");
+        const resp = await fetch("/api/send-invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: email, inviteUrl, orgName: undefined }),
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          const errMsg = (data && data.error) ? data.error : `HTTP ${resp.status}`;
+          setEmailSendStatus("error");
+          setEmailSendMessage(`Email not sent: ${errMsg}`);
+        } else {
+          setEmailSendStatus("sent");
+          setEmailSendMessage(`Email sent to ${email}`);
+        }
+      } catch (e: unknown) {
+        setEmailSendStatus("error");
+        setEmailSendMessage(e instanceof Error ? e.message : "Failed to send email");
+      }
       setStatus("sent");
       setMessage("Invite created. Copy the link below and share it.");
     } catch (err: unknown) {
@@ -97,6 +138,11 @@ export default function InviteEmployeePage() {
               Copy
             </button>
           </div>
+          {emailSendStatus !== "idle" ? (
+            <p className={`mt-2 text-[13px] ${emailSendStatus === 'error' ? 'text-[#ef4444]' : 'text-[#10b981]'}`}>
+              {emailSendMessage || (emailSendStatus === 'sending' ? 'Sending email…' : '')}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

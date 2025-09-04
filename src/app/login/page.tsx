@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { collectionGroup, getDocs, query, where } from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
 export default function LoginPage() {
   const router = useRouter();
@@ -15,9 +16,21 @@ export default function LoginPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        router.replace("/admin");
+        try {
+          const cg = collectionGroup(db, "users");
+          const q = query(cg, where("uid", "==", user.uid));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const role = (snap.docs[0].data() as { role?: string }).role;
+            router.replace(role === "admin" ? "/admin" : "/employee");
+          } else {
+            router.replace("/employee");
+          }
+        } catch {
+          router.replace("/employee");
+        }
       } else {
         setCheckingAuth(false);
       }
@@ -46,8 +59,20 @@ export default function LoginPage() {
               setError("");
               setLoading(true);
               try {
-                await signInWithEmailAndPassword(auth, email, password);
-                router.push("/admin");
+                const cred = await signInWithEmailAndPassword(auth, email, password);
+                try {
+                  const cg = collectionGroup(db, "users");
+                  const q = query(cg, where("uid", "==", cred.user.uid));
+                  const snap = await getDocs(q);
+                  if (!snap.empty) {
+                    const role = (snap.docs[0].data() as { role?: string }).role;
+                    router.push(role === "admin" ? "/admin" : "/employee");
+                  } else {
+                    router.push("/employee");
+                  }
+                } catch {
+                  router.push("/employee");
+                }
               } catch (err: unknown) {
                 setError(err instanceof FirebaseError ? err.message : "Unable to sign in");
               } finally {
