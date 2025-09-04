@@ -100,7 +100,7 @@ export default function SettingsPage() {
     return () => {
       unsub();
     };
-  }, [db, organizationId]);
+  }, [organizationId]);
 
   // Subscribe to roles for the selected department
   useEffect(() => {
@@ -119,7 +119,7 @@ export default function SettingsPage() {
     return () => {
       unsub();
     };
-  }, [db, organizationId, selectedDepartmentId]);
+  }, [organizationId, selectedDepartmentId]);
 
   const canSubmit = useMemo(() => {
     return !creating && !!organizationId && name.trim().length > 1;
