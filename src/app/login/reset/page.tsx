@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { verifyPasswordResetCode, confirmPasswordReset } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const oobCode = params.get("oobCode");
@@ -109,6 +109,14 @@ export default function ResetPasswordPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center px-6" aria-busy="true" />}> 
+      <ResetPasswordPageInner />
+    </Suspense>
   );
 }
 
