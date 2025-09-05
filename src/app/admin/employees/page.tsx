@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, getDocs, query, where, addDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, query, where, addDoc, serverTimestamp, onSnapshot, doc, getDoc, updateDoc } from "firebase/firestore";
 import Image from "next/image";
 
 type Employee = {
@@ -107,6 +107,14 @@ export default function EmployeesPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [pendingInvites, setPendingInvites] = useState<Array<{ email: string; name?: string | null; department?: string | null; role?: string | null; createdAt?: string; status?: string; inviteUrl?: string }>>([]);
+  // View Profile modal state
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewTab, setViewTab] = useState<"personal" | "employment" | "documents" | "emergency" | "bank" | "history">("personal");
+  const [viewEmpId, setViewEmpId] = useState<string | null>(null);
+  const [viewEmp, setViewEmp] = useState<Record<string, unknown> | null>(null);
+  const [viewError, setViewError] = useState("");
+  const [savingView, setSavingView] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -665,7 +673,23 @@ export default function EmployeesPage() {
                     </td>
                     <td className="px-3 py-3 align-middle">
                       <div className="flex items-center gap-2">
-                        <button className="text-[#374151] hover:underline">View</button>
+                        <button className="text-[#374151] hover:underline" onClick={async () => {
+                          if (!orgId) return;
+                          setViewTab("personal");
+                          setViewError("");
+                          setViewLoading(true);
+                          setViewOpen(true);
+                          setViewEmpId(e.id);
+                          try {
+                            const empRef = doc(db, "organizations", orgId, "employees", e.id);
+                            const empSnap = await getDoc(empRef);
+                            setViewEmp(empSnap.exists() ? (empSnap.data() as Record<string, unknown>) : null);
+                          } catch (err: unknown) {
+                            setViewError(err instanceof Error ? err.message : "Failed to load profile");
+                          } finally {
+                            setViewLoading(false);
+                          }
+                        }}>View</button>
                         <button className="text-[#374151] hover:underline">Edit</button>
                         <button className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]">More</button>
                       </div>
@@ -749,6 +773,226 @@ export default function EmployeesPage() {
           </div>
         </>
       )}
+      {/* Employee Profile Modal */}
+      {viewOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => (!savingView ? setViewOpen(false) : null)} />
+          <div className="relative bg-white rounded-lg shadow-lg w-[95vw] max-w-[1024px] border border-[#e5e7eb]">
+            <div className="p-5 border-b border-[#e5e7eb] flex items-center justify-between">
+              <h2 className="text-[16px] font-semibold">Employee Profile</h2>
+              <button className="text-[14px] text-[#374151]" onClick={() => (!savingView ? setViewOpen(false) : null)}>Close</button>
+            </div>
+
+            <div className="p-5">
+              {/* Tabs */}
+              <div className="flex flex-wrap gap-2 border-b border-[#e5e7eb] pb-2">
+                {[
+                  { key: "personal", label: "Personal Information (Editable by HR)" },
+                  { key: "employment", label: "Employment Details" },
+                  { key: "documents", label: "Documents" },
+                  { key: "emergency", label: "Emergency Contacts" },
+                  { key: "bank", label: "Bank Details" },
+                  { key: "history", label: "History & Activities" },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setViewTab(t.key as typeof viewTab)}
+                    className={`px-3 py-1.5 rounded-md text-[13px] border ${viewTab === t.key ? "bg-[#f97316]/10 text-[#1f2937] border-[#f97316]/30" : "border-[#d1d5db] text-[#374151] hover:bg-[#f9fafb]"}`}
+                  >{t.label}</button>
+                ))}
+              </div>
+
+              {/* Content */}
+              {viewLoading ? (
+                <div className="mt-6 space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-12 rounded-md bg-[#f3f4f6] animate-pulse" />
+                  ))}
+                </div>
+              ) : viewEmp ? (
+                <div className="mt-5">
+                  {viewTab === "personal" ? (
+                    <form
+                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!orgId || !viewEmpId) return;
+                        setViewError("");
+                        setSavingView(true);
+                        try {
+                          const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
+                          await updateDoc(empRef, {
+                            name: (viewEmp["name"] as string) ?? "",
+                            email: (viewEmp["email"] as string) ?? "",
+                            phoneNumber: (viewEmp["phoneNumber"] as string) ?? "",
+                            dob: (viewEmp["dob"] as string) ?? "",
+                            nidNumber: (viewEmp["nidNumber"] as string) ?? "",
+                            passportNumber: (viewEmp["passportNumber"] as string) ?? "",
+                            presentAddress: (viewEmp["presentAddress"] as string) ?? "",
+                          });
+                        } catch (err: unknown) {
+                          setViewError(err instanceof Error ? err.message : "Failed to save");
+                        } finally {
+                          setSavingView(false);
+                        }
+                      }}
+                    >
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Full name</label>
+                        <input value={(viewEmp["name"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), name: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                        <input type="email" value={(viewEmp["email"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), email: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                        <input value={(viewEmp["phoneNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), phoneNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Date of Birth</label>
+                        <input type="date" value={(viewEmp["dob"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), dob: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">NID Number</label>
+                        <input value={(viewEmp["nidNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), nidNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Passport Number</label>
+                        <input value={(viewEmp["passportNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), passportNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Present Address</label>
+                        <textarea value={(viewEmp["presentAddress"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), presentAddress: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] min-h-[90px]" />
+                      </div>
+                      {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
+                      <div className="md:col-span-2 flex items-center justify-end gap-2">
+                        <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
+                      </div>
+                    </form>
+                  ) : null}
+
+                  {viewTab === "employment" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[
+                        { label: "Department", key: "department" },
+                        { label: "Role", key: "jobTitle" },
+                        { label: "Employment Type", key: "employeeType" },
+                        { label: "Status", key: "status" },
+                        { label: "Manager", key: "manager" },
+                        { label: "Hire Date", key: "hireDate" },
+                        { label: "Location", key: "location" },
+                      ].map((r) => (
+                        <div key={r.key}>
+                          <p className="text-[12px] text-[#6b7280]">{r.label}</p>
+                          <p className="mt-1 text-[14px]">{String((viewEmp as Record<string, unknown>)[r.key] ?? "—")}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {viewTab === "documents" ? (
+                    <div className="text-[14px] text-[#6b7280]">Documents module coming soon.</div>
+                  ) : null}
+
+                  {viewTab === "emergency" ? (
+                    <form
+                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!orgId || !viewEmpId) return;
+                        setViewError("");
+                        setSavingView(true);
+                        try {
+                          const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
+                          await updateDoc(empRef, {
+                            emergencyContactName: (viewEmp["emergencyContactName"] as string) ?? "",
+                            emergencyContactPhone: (viewEmp["emergencyContactPhone"] as string) ?? "",
+                            emergencyContactRelation: (viewEmp["emergencyContactRelation"] as string) ?? "",
+                          });
+                        } catch (err: unknown) {
+                          setViewError(err instanceof Error ? err.message : "Failed to save");
+                        } finally {
+                          setSavingView(false);
+                        }
+                      }}
+                    >
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Name</label>
+                        <input value={(viewEmp["emergencyContactName"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), emergencyContactName: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                        <input value={(viewEmp["emergencyContactPhone"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), emergencyContactPhone: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Relationship</label>
+                        <input value={(viewEmp["emergencyContactRelation"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), emergencyContactRelation: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
+                      <div className="md:col-span-2 flex items-center justify-end gap-2">
+                        <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
+                      </div>
+                    </form>
+                  ) : null}
+
+                  {viewTab === "bank" ? (
+                    <form
+                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!orgId || !viewEmpId) return;
+                        setViewError("");
+                        setSavingView(true);
+                        try {
+                          const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
+                          await updateDoc(empRef, {
+                            bankName: (viewEmp["bankName"] as string) ?? "",
+                            bankAccountName: (viewEmp["bankAccountName"] as string) ?? "",
+                            bankAccountNumber: (viewEmp["bankAccountNumber"] as string) ?? "",
+                            bankRoutingNumber: (viewEmp["bankRoutingNumber"] as string) ?? "",
+                          });
+                        } catch (err: unknown) {
+                          setViewError(err instanceof Error ? err.message : "Failed to save");
+                        } finally {
+                          setSavingView(false);
+                        }
+                      }}
+                    >
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Bank Name</label>
+                        <input value={(viewEmp["bankName"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankName: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Name</label>
+                        <input value={(viewEmp["bankAccountName"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankAccountName: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Number</label>
+                        <input value={(viewEmp["bankAccountNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankAccountNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Routing Number</label>
+                        <input value={(viewEmp["bankRoutingNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankRoutingNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                      </div>
+                      {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
+                      <div className="md:col-span-2 flex items-center justify-end gap-2">
+                        <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
+                      </div>
+                    </form>
+                  ) : null}
+
+                  {viewTab === "history" ? (
+                    <div className="text-[14px] text-[#6b7280]">History & activities will appear here.</div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-[14px] text-[#b91c1c] mt-4">{viewError || "Profile not found."}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {/* Add Employee Modal */}
       {addOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
