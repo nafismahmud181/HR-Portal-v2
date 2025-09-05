@@ -6,143 +6,331 @@ type Template = {
   id: string;
   name: string;
   category:
-    | "Boss Mode"
-    | "Ecommerce"
-    | "Marketing"
-    | "Frameworks"
-    | "Social Media"
-    | "General";
+    | "Recruitment & Hiring"
+    | "Onboarding & Joining"
+    | "Employee Records & HR Operations"
+    | "Payroll & Benefits"
+    | "Leave & Attendance"
+    | "Compliance & Policy"
+    | "Exit / Separation";
   description: string;
-  badge?: "Boss Mode" | "Beta";
   iconBg: string;
 };
 
 const ALL_TEMPLATES: Template[] = [
+  // 1. Recruitment & Hiring
   {
-    id: "amazon-product-description",
-    name: "Amazon Product Description",
-    category: "Ecommerce",
+    id: "job-requisition-form",
+    name: "Job Requisition Form",
+    category: "Recruitment & Hiring",
     description:
-      "Create compelling product descriptions Amazon listing: create key feature and about.",
-    iconBg: "bg-[#fef7ed]",
-  },
-  {
-    id: "aida-framework",
-    name: "AIDA Framework",
-    category: "Frameworks",
-    description:
-      "Use the oldest marketing framework in the world. Attention, interest, Desire, Action.",
+      "Request approval for a new hire from department managers.",
     iconBg: "bg-[#eef2ff]",
   },
   {
-    id: "Letter-of-employment",
-    name: "LOE",
-    category: "Ecommerce",
-    description: "Letter of Employment",
+    id: "job-description-template",
+    name: "Job Description (JD) Template",
+    category: "Recruitment & Hiring",
+    description: "Standardize role responsibilities and requirements.",
     iconBg: "bg-[#fef7ed]",
   },
   {
-    id: "aida-framework",
-    name: "AIDA Framework",
-    category: "Frameworks",
-    description:
-      "Use the oldest marketing framework in the world. Attention, interest, Desire, Action.",
-    iconBg: "bg-[#eef2ff]",
-  },
-  {
-    id: "content-summariser",
-    name: "Content Summariser",
-    category: "Marketing",
-    description: "Get the key bullet points from a piece of content.",
-    iconBg: "bg-[#fff7ed]",
-  },
-  {
-    id: "bab-framework",
-    name: "Before-After-Bridge Framework",
-    category: "Frameworks",
-    description:
-      "Create marketing copy using the BAB framework. Before, After, Bridge.",
-    badge: "Beta",
-    iconBg: "bg-[#eff6ff]",
-  },
-  {
-    id: "company-bio",
-    name: "Company Bio",
-    category: "General",
-    description: "Tell your company's story with a captivating bio.",
+    id: "interview-evaluation-form",
+    name: "Interview Evaluation Form",
+    category: "Recruitment & Hiring",
+    description: "Capture interviewer feedback consistently.",
     iconBg: "bg-[#f0fdf4]",
   },
   {
-    id: "blog-topic-ideas",
-    name: "Blog Post Topic Ideas",
-    category: "Marketing",
-    description:
-      "Brainstorm blog post topics that will engage readers and rank well on Google.",
-    iconBg: "bg-[#f5f3ff]",
-  },
-  {
-    id: "creative-story",
-    name: "Creative Story",
-    category: "General",
-    description: "Write wildly creative stories to engage your readers.",
-    iconBg: "bg-[#fef2f2]",
-  },
-  {
-    id: "content-improver",
-    name: "Content Improver",
-    category: "Marketing",
-    description:
-      "Rewrite content to make it more interesting, creative, and engaging.",
+    id: "reference-check-form",
+    name: "Reference Check Form",
+    category: "Recruitment & Hiring",
+    description: "Record reference verification details.",
     iconBg: "bg-[#ecfeff]",
   },
   {
-    id: "facebook-ad-headline",
-    name: "Facebook Ad Headline",
-    category: "Social Media",
-    description: "Generate scroll-stopping headlines for your Facebook Ads.",
+    id: "offer-letter",
+    name: "Offer Letter",
+    category: "Recruitment & Hiring",
+    description: "Issue an offer with compensation and terms.",
     iconBg: "bg-[#fdf4ff]",
   },
   {
-    id: "explain-to-child",
-    name: "Explain It To a Child",
-    category: "General",
-    description: "Write clearly to explain complex stories to younger readers.",
+    id: "employment-contract",
+    name: "Appointment / Employment Contract",
+    category: "Recruitment & Hiring",
+    description: "Formal employment agreement between employer and employee.",
     iconBg: "bg-[#fafafa]",
   },
 
-  // HR Documents examples
+  // 2. Onboarding & Joining
   {
-    id: "loe",
-    name: "Letter of Employment (LOE)",
-    category: "General",
-    description: "Generate a formal employment verification letter.",
+    id: "employee-personal-info-form",
+    name: "Employee Personal Information Form",
+    category: "Onboarding & Joining",
+    description: "Collect personal details for new hires.",
+    iconBg: "bg-[#eef2ff]",
+  },
+  {
+    id: "emergency-contact-form",
+    name: "Emergency Contact Form",
+    category: "Onboarding & Joining",
+    description: "Capture emergency contact information.",
     iconBg: "bg-[#fef7ed]",
+  },
+  {
+    id: "bank-details-form",
+    name: "Bank Details Form",
+    category: "Onboarding & Joining",
+    description: "Record salary disbursement bank details.",
+    iconBg: "bg-[#f0fdf4]",
+  },
+  {
+    id: "id-card-request-form",
+    name: "ID Card Request Form",
+    category: "Onboarding & Joining",
+    description: "Request creation of employee ID card.",
+    iconBg: "bg-[#ecfeff]",
+  },
+  {
+    id: "joining-report",
+    name: "Joining Report / Acknowledgement",
+    category: "Onboarding & Joining",
+    description: "Confirm employee joining and onboarding.",
+    iconBg: "bg-[#fdf4ff]",
+  },
+  {
+    id: "probation-confirmation-letter",
+    name: "Probation Confirmation Letter",
+    category: "Onboarding & Joining",
+    description: "Confirm successful completion of probation period.",
+    iconBg: "bg-[#fafafa]",
+  },
+
+  // 3. Employee Records & HR Operations
+  {
+    id: "employment-verification-letter",
+    name: "Letter of Employment (LOE) / Employment Verification Letter",
+    category: "Employee Records & HR Operations",
+    description: "Verify current employment details for third parties.",
+    iconBg: "bg-[#eef2ff]",
   },
   {
     id: "salary-certificate",
     name: "Salary Certificate",
-    category: "General",
-    description: "Provide an official statement of employee salary details.",
-    iconBg: "bg-[#fff7ed]",
+    category: "Employee Records & HR Operations",
+    description: "Official statement of employee salary details.",
+    iconBg: "bg-[#fef7ed]",
+  },
+  {
+    id: "promotion-increment-letter",
+    name: "Promotion / Increment Letter",
+    category: "Employee Records & HR Operations",
+    description: "Communicate promotion or salary increment.",
+    iconBg: "bg-[#f0fdf4]",
+  },
+  {
+    id: "transfer-letter",
+    name: "Transfer Letter",
+    category: "Employee Records & HR Operations",
+    description: "Notify department or location transfer.",
+    iconBg: "bg-[#ecfeff]",
+  },
+  {
+    id: "warning-letter",
+    name: "Warning Letter / Disciplinary Action Notice",
+    category: "Employee Records & HR Operations",
+    description: "Document misconduct and corrective action.",
+    iconBg: "bg-[#fdf4ff]",
+  },
+  {
+    id: "show-cause-notice",
+    name: "Show Cause Notice",
+    category: "Employee Records & HR Operations",
+    description: "Seek written explanation for policy breach.",
+    iconBg: "bg-[#fafafa]",
+  },
+  {
+    id: "appreciation-letter",
+    name: "Appreciation / Recognition Letter",
+    category: "Employee Records & HR Operations",
+    description: "Acknowledge outstanding performance or contribution.",
+    iconBg: "bg-[#eef2ff]",
   },
   {
     id: "experience-letter",
     name: "Experience Letter",
-    category: "General",
+    category: "Employee Records & HR Operations",
+    description: "Summarize tenure and responsibilities for departing employees.",
+    iconBg: "bg-[#fef7ed]",
+  },
+  {
+    id: "relieving-letter",
+    name: "Relieving Letter",
+    category: "Employee Records & HR Operations",
+    description: "Confirm separation date and clearance from duties.",
+    iconBg: "bg-[#f0fdf4]",
+  },
+
+  // 4. Payroll & Benefits
+  {
+    id: "salary-structure-template",
+    name: "Salary Structure Template",
+    category: "Payroll & Benefits",
+    description: "Define components of compensation for a role or employee.",
+    iconBg: "bg-[#ecfeff]",
+  },
+  {
+    id: "pay-slip-template",
+    name: "Pay Slip Template",
+    category: "Payroll & Benefits",
+    description: "Provide monthly pay details and deductions.",
+    iconBg: "bg-[#fdf4ff]",
+  },
+  {
+    id: "bonus-incentive-letter",
+    name: "Bonus / Incentive Letter",
+    category: "Payroll & Benefits",
+    description: "Communicate bonus or incentive award details.",
+    iconBg: "bg-[#fafafa]",
+  },
+  {
+    id: "reimbursement-form",
+    name: "Reimbursement Form (travel, medical, etc.)",
+    category: "Payroll & Benefits",
+    description: "Submit and track expense reimbursements.",
+    iconBg: "bg-[#eef2ff]",
+  },
+  {
+    id: "loan-advance-salary-form",
+    name: "Loan / Advance Salary Application & Approval Form",
+    category: "Payroll & Benefits",
+    description: "Request and approve salary advance or loan.",
+    iconBg: "bg-[#fef7ed]",
+  },
+
+  // 5. Leave & Attendance
+  {
+    id: "leave-application-form",
+    name: "Leave Application Form",
+    category: "Leave & Attendance",
+    description: "Apply for leave with dates and reason.",
+    iconBg: "bg-[#f0fdf4]",
+  },
+  {
+    id: "leave-approval-letter",
+    name: "Leave Approval / Rejection Letter",
+    category: "Leave & Attendance",
+    description: "Notify approval or rejection of leave.",
+    iconBg: "bg-[#ecfeff]",
+  },
+  {
+    id: "attendance-policy",
+    name: "Attendance Policy Document",
+    category: "Leave & Attendance",
+    description: "Define attendance expectations and rules.",
+    iconBg: "bg-[#fdf4ff]",
+  },
+  {
+    id: "overtime-request-form",
+    name: "Overtime Request Form",
+    category: "Leave & Attendance",
+    description: "Request approval for overtime hours.",
+    iconBg: "bg-[#fafafa]",
+  },
+
+  // 6. Compliance & Policy
+  {
+    id: "employee-handbook",
+    name: "Employee Handbook / HR Policy Manual",
+    category: "Compliance & Policy",
     description:
-      "Summarize tenure and responsibilities for departing employees.",
-    iconBg: "bg-[#eff6ff]",
+      "Company policies: leave, working hours, dress code, conduct, etc.",
+    iconBg: "bg-[#eef2ff]",
+  },
+  {
+    id: "code-of-conduct",
+    name: "Code of Conduct & Ethics Policy",
+    category: "Compliance & Policy",
+    description: "Standards of behavior and ethics at work.",
+    iconBg: "bg-[#fef7ed]",
+  },
+  {
+    id: "nda",
+    name: "Confidentiality / Non-Disclosure Agreement (NDA)",
+    category: "Compliance & Policy",
+    description: "Protect confidential company information.",
+    iconBg: "bg-[#f0fdf4]",
+  },
+  {
+    id: "posh-policy",
+    name: "Policy on Prevention of Sexual Harassment (POSH)",
+    category: "Compliance & Policy",
+    description: "Prevention and redressal of sexual harassment.",
+    iconBg: "bg-[#ecfeff]",
+  },
+  {
+    id: "workplace-safety-policy",
+    name: "Workplace Safety Policy",
+    category: "Compliance & Policy",
+    description: "Safety standards and incident reporting.",
+    iconBg: "bg-[#fdf4ff]",
+  },
+  {
+    id: "data-protection-policy",
+    name: "Data Protection & IT Usage Policy",
+    category: "Compliance & Policy",
+    description: "Data privacy, security and acceptable IT use.",
+    iconBg: "bg-[#fafafa]",
+  },
+
+  // 7. Exit / Separation
+  {
+    id: "resignation-acceptance-letter",
+    name: "Resignation Acceptance Letter",
+    category: "Exit / Separation",
+    description: "Acknowledge receipt and acceptance of resignation.",
+    iconBg: "bg-[#eef2ff]",
+  },
+  {
+    id: "exit-interview-form",
+    name: "Exit Interview Form",
+    category: "Exit / Separation",
+    description: "Collect feedback during employee separation.",
+    iconBg: "bg-[#fef7ed]",
+  },
+  {
+    id: "clearance-form",
+    name: "Clearance Form (department-wise sign-off)",
+    category: "Exit / Separation",
+    description: "Ensure asset and knowledge handover and approvals.",
+    iconBg: "bg-[#f0fdf4]",
+  },
+  {
+    id: "final-settlement-letter",
+    name: "Final Settlement Letter",
+    category: "Exit / Separation",
+    description: "Confirm final dues, deductions and settlement.",
+    iconBg: "bg-[#ecfeff]",
+  },
+  {
+    id: "experience-relieving-certificate",
+    name: "Experience & Relieving Certificate",
+    category: "Exit / Separation",
+    description: "Provide experience and relieving confirmation.",
+    iconBg: "bg-[#fdf4ff]",
   },
 ];
 
 const CATEGORIES: Array<Template["category"] | "All"> = [
   "All",
-  "Boss Mode",
-  "Ecommerce",
-  "Marketing",
-  "Frameworks",
-  "Social Media",
-  "General",
+  "Recruitment & Hiring",
+  "Onboarding & Joining",
+  "Employee Records & HR Operations",
+  "Payroll & Benefits",
+  "Leave & Attendance",
+  "Compliance & Policy",
+  "Exit / Separation",
 ];
 
 export default function TemplatesPage() {
@@ -229,16 +417,6 @@ export default function TemplatesPage() {
                 }`}
               >
                 {cat}
-                {cat === "Boss Mode" && (
-                  <span className="ml-2 text-[12px] text-[#6b7280]">
-                    (
-                    {
-                      ALL_TEMPLATES.filter((t) => t.badge === "Boss Mode")
-                        .length
-                    }
-                    )
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -280,17 +458,6 @@ function TemplateCard({ template }: { template: Template }) {
             <h3 className="text-[16px] font-medium truncate">
               {template.name}
             </h3>
-            {template.badge && (
-              <span
-                className={`px-2 py-0.5 text-[12px] rounded-full border ${
-                  template.badge === "Boss Mode"
-                    ? "border-[#f97316] text-[#f97316]"
-                    : "border-[#d1d5db] text-[#374151]"
-                }`}
-              >
-                {template.badge}
-              </span>
-            )}
           </div>
           <p className="mt-1 text-[13px] text-[#6b7280] line-clamp-2">
             {template.description}
@@ -315,17 +482,6 @@ function TemplateRow({ template }: { template: Template }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <h3 className="text-[16px] font-medium truncate">{template.name}</h3>
-          {template.badge && (
-            <span
-              className={`px-2 py-0.5 text-[12px] rounded-full border ${
-                template.badge === "Boss Mode"
-                  ? "border-[#f97316] text-[#f97316]"
-                  : "border-[#d1d5db] text-[#374151]"
-              }`}
-            >
-              {template.badge}
-            </span>
-          )}
         </div>
         <p className="mt-1 text-[13px] text-[#6b7280] truncate">
           {template.description}
