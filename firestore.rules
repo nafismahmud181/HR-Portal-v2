@@ -226,6 +226,22 @@ service cloud.firestore {
         get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Payroll - Organization Isolation
+    // Collections:
+    // - organizations/{orgId}/payrollRuns/{runId}
+    // - organizations/{orgId}/payrollRuns/{runId}/items/{employeeId}
+    match /organizations/{orgId}/payrollRuns/{runId} {
+      // Admins manage runs; members can read
+      allow read: if isOrgMember(orgId);
+      allow create, update, delete: if isOrgAdmin(orgId);
+
+      match /items/{employeeId} {
+        // Admins manage items; employees can read their own
+        allow read: if isOrgAdmin(orgId) || (isOrgMember(orgId) && request.auth.uid == employeeId);
+        allow create, update, delete: if isOrgAdmin(orgId);
+      }
+    }
+
     // Departments - Organization Isolation
     match /departments/{departmentId} {
       // Allow read only if user belongs to the same organization as the department

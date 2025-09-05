@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, getDocs, query, where, addDoc, serverTimestamp, onSnapshot, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, query, where, addDoc, serverTimestamp, doc, getDoc, updateDoc } from "firebase/firestore";
 import Image from "next/image";
 
 type Employee = {
@@ -84,6 +84,22 @@ export default function EmployeesPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importColumns, setImportColumns] = useState<string[]>([]);
+  const [importRows, setImportRows] = useState<Array<Record<string, unknown>>>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({
+    name: "",
+    email: "",
+    department: "",
+    jobTitle: "",
+    employeeType: "",
+    status: "",
+    location: "",
+    phoneNumber: "",
+    dob: "",
+  });
   const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
   const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
   const [newEmpName, setNewEmpName] = useState("");
@@ -106,7 +122,7 @@ export default function EmployeesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const pageSize = 10;
-  const [pendingInvites, setPendingInvites] = useState<Array<{ email: string; name?: string | null; department?: string | null; role?: string | null; createdAt?: string; status?: string; inviteUrl?: string }>>([]);
+  
   // View Profile modal state
   const [viewOpen, setViewOpen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
@@ -171,31 +187,7 @@ export default function EmployeesPage() {
           } as Employee;
         });
         setEmployees(list);
-        // Load invites
-        const invitesCol = collection(db, "organizations", foundOrgId, "invites");
-        onSnapshot(invitesCol, (snapInv) => {
-          const invites = snapInv.docs.map((d) => {
-            const data = d.data() as Record<string, unknown>;
-            const ts = data["createdAt"] as { toDate?: () => Date } | undefined;
-            const origin = typeof window !== "undefined" ? window.location.origin : "";
-            const url = origin ? new URL(origin) : null;
-            if (url) {
-              url.pathname = "/invite";
-              url.searchParams.set("orgId", foundOrgId);
-              url.searchParams.set("email", (data["email"] as string) ?? d.id);
-            }
-            return {
-              email: (data["email"] as string) ?? d.id,
-              name: (data["name"] as string) ?? null,
-              department: (data["departmentName"] as string) ?? null,
-              role: (data["roleName"] as string) ?? null,
-              createdAt: typeof ts?.toDate === "function" ? ts!.toDate()!.toLocaleString() : undefined,
-              status: (data["status"] as string) ?? "pending",
-              inviteUrl: url ? url.toString() : undefined,
-            };
-          }).filter((i) => i.status !== "accepted");
-          setPendingInvites(invites);
-        });
+        // Invites tracking moved to Admin → Invites page
       } catch {
         setEmployees([]);
       } finally {
@@ -443,7 +435,7 @@ export default function EmployeesPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827]" onClick={() => setAddOpen(true)}>Add Employee</button>
-          <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Import</button>
+          <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]" onClick={() => { setImportOpen(true); setImportError(""); }}>Bulk Import</button>
           <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Export</button>
           <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Organization Chart</button>
         </div>
@@ -455,7 +447,7 @@ export default function EmployeesPage() {
           { label: "Total Employees", value: stats.total },
           { label: "New Hires", value: stats.newHires },
           { label: "On Leave Today", value: stats.onLeave },
-          { label: "Pending Invites", value: pendingInvites.length },
+          { label: "Pending Actions", value: stats.pending },
         ].map((s) => (
           <div key={s.label} className="rounded-lg border border-[#e5e7eb] bg-white p-4">
             <p className="text-[12px] text-[#6b7280]">{s.label}</p>
@@ -531,81 +523,7 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      {/* Pending Invites Table */}
-      {pendingInvites.length > 0 ? (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white">
-          <div className="p-5 border-b border-[#e5e7eb]"><h2 className="text-[16px] font-semibold">Pending Invites</h2></div>
-          <table className="hidden md:table w-full text-left">
-            <thead className="text-[12px] text-[#6b7280]">
-              <tr>
-                <th className="px-3 py-2">Invitee</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2">Department</th>
-                <th className="px-3 py-2">Role</th>
-                <th className="px-3 py-2">Sent</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="text-[14px]">
-              {pendingInvites.map((i) => (
-                <tr key={i.email} className="hover:bg-[#f9fafb]">
-                  <td className="px-3 py-3 align-middle">{i.name || "—"}</td>
-                  <td className="px-3 py-3 align-middle">{i.email}</td>
-                  <td className="px-3 py-3 align-middle">{i.department || "—"}</td>
-                  <td className="px-3 py-3 align-middle">{i.role || "—"}</td>
-                  <td className="px-3 py-3 align-middle">{i.createdAt || ""}</td>
-                  <td className="px-3 py-3 align-middle">
-                    <span className="text-[12px] px-2 py-1 rounded-full border bg-[#fffbeb] text-[#b45309] border-[#fde68a]">Pending</span>
-                  </td>
-                  <td className="px-3 py-3 align-middle">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]"
-                        onClick={async () => {
-                          try {
-                            if (i.inviteUrl) await navigator.clipboard.writeText(i.inviteUrl);
-                          } catch {}
-                        }}
-                      >Copy Link</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Mobile list */}
-          <div className="md:hidden divide-y divide-[#e5e7eb]">
-            {pendingInvites.map((i) => (
-              <div key={i.email} className="p-4 bg-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-[14px]">{i.name || "—"}</div>
-                    <div className="text-[12px] text-[#6b7280]">{i.email}</div>
-                  </div>
-                  <span className="text-[12px] px-2 py-1 rounded-full border bg-[#fffbeb] text-[#b45309] border-[#fde68a]">Pending</span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] text-[#374151]">
-                  <div><span className="text-[#6b7280]">Department:</span> {i.department || "—"}</div>
-                  <div><span className="text-[#6b7280]">Role:</span> {i.role || "—"}</div>
-                  <div><span className="text-[#6b7280]">Sent:</span> {i.createdAt || ""}</div>
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]"
-                    onClick={async () => {
-                      try {
-                        if (i.inviteUrl) await navigator.clipboard.writeText(i.inviteUrl);
-                      } catch {}
-                    }}
-                  >Copy Link</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {/* Pending Invites section removed; see Admin → Invites */}
 
       {/* Loading skeleton */}
       {loading ? (
@@ -989,6 +907,187 @@ export default function EmployeesPage() {
               ) : (
                 <div className="text-[14px] text-[#b91c1c] mt-4">{viewError || "Profile not found."}</div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {/* Import Employees Modal */}
+      {importOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => (!importing ? setImportOpen(false) : null)} />
+          <div className="relative bg-white rounded-lg shadow-lg w-[95vw] max-w-[900px] border border-[#e5e7eb]">
+            <div className="p-5 border-b border-[#e5e7eb] flex items-center justify-between">
+              <h2 className="text-[16px] font-semibold">Import Employees (Excel)</h2>
+              <button className="text-[14px] text-[#374151]" onClick={() => (!importing ? setImportOpen(false) : null)}>Close</button>
+            </div>
+            <div className="p-5 space-y-5">
+              <div>
+                <p className="text-[13px] text-[#6b7280]">Upload an .xlsx or .csv file. The first row should be column headers.</p>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={async (e) => {
+                    setImportError("");
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const XLSX = await import("xlsx");
+                      const data = await file.arrayBuffer();
+                      const wb = XLSX.read(data, { type: "array" });
+                      const ws = wb.Sheets[wb.SheetNames[0]];
+                      const rows = XLSX.utils.sheet_to_json(ws, { defval: "" }) as Array<Record<string, unknown>>;
+                      const cols = rows.length ? Object.keys(rows[0]) : [];
+                      setImportRows(rows);
+                      setImportColumns(cols);
+                      setMapping((m) => ({ ...m, name: cols.find((c) => c.toLowerCase().includes("name")) || m.name, email: cols.find((c) => c.toLowerCase().includes("mail")) || m.email }));
+                    } catch (err: unknown) {
+                      setImportError(err instanceof Error ? err.message : "Failed to parse file");
+                    }
+                  }}
+                  className="mt-2"
+                />
+              </div>
+
+              {importColumns.length ? (
+                <div>
+                  <h3 className="text-[14px] font-medium">Map Columns</h3>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {Object.entries({
+                      name: "Full name",
+                      email: "Email",
+                      department: "Department",
+                      jobTitle: "Job Title",
+                      employeeType: "Employment Type",
+                      status: "Status",
+                      location: "Location",
+                      phoneNumber: "Phone",
+                      dob: "Date of Birth (YYYY-MM-DD)",
+                    }).map(([key, label]) => (
+                      <div key={key}>
+                        <label className="block mb-1 text-[13px] text-[#374151]">{label}</label>
+                        <select
+                          value={mapping[key] || ""}
+                          onChange={(e) => setMapping((m) => ({ ...m, [key]: e.target.value }))}
+                          className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] bg-white"
+                        >
+                          <option value="">Skip</option>
+                          {importColumns.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {importRows.length ? (
+                <div>
+                  <h3 className="text-[14px] font-medium">Preview ({Math.min(importRows.length, 5)} of {importRows.length})</h3>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="min-w-[600px] text-left border border-[#e5e7eb]">
+                      <thead className="text-[12px] text-[#6b7280]">
+                        <tr>
+                          {Object.keys(mapping).map((k) => (
+                            <th key={k} className="px-3 py-2 border-b border-[#e5e7eb]">{k}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="text-[13px]">
+                        {importRows.slice(0, 5).map((r, i) => (
+                          <tr key={i}>
+                            {Object.keys(mapping).map((k) => (
+                              <td key={k} className="px-3 py-1 border-b border-[#f3f4f6]">{String(r[mapping[k]] ?? "")}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+
+              {importError ? <p className="text-[13px] text-[#b91c1c]">{importError}</p> : null}
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]"
+                  disabled={importing}
+                  onClick={() => setImportOpen(false)}
+                >Cancel</button>
+                <button
+                  className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60"
+                  disabled={importing || !orgId || !importRows.length || !mapping.name || !mapping.email}
+                  onClick={async () => {
+                    if (!orgId) return;
+                    setImportError("");
+                    setImporting(true);
+                    try {
+                      const empCol = collection(db, "organizations", orgId, "employees");
+                      const ops: Array<Promise<unknown>> = [];
+                      for (const r of importRows) {
+                        const name = String(r[mapping.name] ?? "").trim();
+                        const email = String(r[mapping.email] ?? "").trim().toLowerCase();
+                        if (!name || !email) continue;
+                        const docData: Record<string, unknown> = {
+                          name,
+                          email,
+                          department: mapping.department ? String(r[mapping.department] ?? "") : "",
+                          jobTitle: mapping.jobTitle ? String(r[mapping.jobTitle] ?? "") : "",
+                          employeeType: mapping.employeeType ? String(r[mapping.employeeType] ?? "") : "Full-time",
+                          status: mapping.status ? String(r[mapping.status] ?? "") : "Active",
+                          location: mapping.location ? String(r[mapping.location] ?? "") : "",
+                          phoneNumber: mapping.phoneNumber ? String(r[mapping.phoneNumber] ?? "") : "",
+                          dob: mapping.dob ? String(r[mapping.dob] ?? "") : "",
+                          manager: "",
+                          hireDate: serverTimestamp(),
+                          createdAt: serverTimestamp(),
+                        };
+                        ops.push(addDoc(empCol, docData));
+                      }
+                      await Promise.all(ops);
+                      setImportOpen(false);
+                      // Simple refresh: reload employees after import
+                      try {
+                        const empSnap = await getDocs(collection(db, "organizations", orgId, "employees"));
+                        type FirestoreTimestampLike = { toDate?: () => Date } | string | null | undefined;
+                        const toIso = (v: FirestoreTimestampLike): string => {
+                          if (!v) return "";
+                          if (typeof v === "string") return v;
+                          if (typeof v.toDate === "function") return v.toDate()!.toISOString();
+                          return String(v as unknown);
+                        };
+                        const list: Employee[] = empSnap.docs.map((d) => {
+                          const data = d.data() as Record<string, unknown>;
+                          return {
+                            id: d.id,
+                            name: (data["name"] as string) ?? "",
+                            employeeId: (data["employeeId"] as string) ?? d.id,
+                            email: (data["email"] as string) ?? "",
+                            department: (data["department"] as string) ?? "",
+                            jobTitle: (data["jobTitle"] as string) ?? "",
+                            manager: (data["manager"] as string) ?? "",
+                            hireDate: toIso(data["hireDate"] as FirestoreTimestampLike),
+                            status: (data["status"] as Employee["status"]) ?? "Active",
+                            location: (data["location"] as string) ?? "",
+                            employeeType: (data["employeeType"] as Employee["employeeType"]) ?? "Full-time",
+                            avatarUrl: data["avatarUrl"] as string | undefined,
+                            dob: ((): string | undefined => {
+                              const v = toIso(data["dob"] as FirestoreTimestampLike);
+                              return v || undefined;
+                            })(),
+                          } as Employee;
+                        });
+                        setEmployees(list);
+                      } catch {}
+                    } catch (err: unknown) {
+                      setImportError(err instanceof Error ? err.message : "Failed to import");
+                    } finally {
+                      setImporting(false);
+                    }
+                  }}
+                >{importing ? "Importing…" : `Import ${importRows.length} rows`}</button>
+              </div>
             </div>
           </div>
         </div>
