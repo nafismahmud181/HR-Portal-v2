@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -16,7 +17,12 @@ function formatLongDate(input: string) {
 
 export default function TemplateEditorPage() {
   const params = useParams();
-  const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params?.id[0] : "";
+  const id =
+    typeof params?.id === "string"
+      ? params.id
+      : Array.isArray(params?.id)
+      ? params?.id[0]
+      : "";
 
   const isLoe = useMemo(() => {
     const normalized = id?.toLowerCase();
@@ -47,8 +53,13 @@ export default function TemplateEditorPage() {
         <div className="mt-8 rounded-lg border border-[#e5e7eb] bg-white p-8 text-center">
           <h2 className="text-[18px] font-semibold">Coming soon</h2>
           <p className="mt-2 text-[14px] text-[#6b7280]">
-            The selected template editor is under construction. Please choose the
-            <span className="font-medium"> LOE / Employment Verification</span> template to try the editor.
+            The selected template editor is under construction. Please choose
+            the
+            <span className="font-medium">
+              {" "}
+              LOE / Employment Verification
+            </span>{" "}
+            template to try the editor.
           </p>
         </div>
       </div>
@@ -72,19 +83,26 @@ function LoeEditor() {
   const [companyState, setCompanyState] = useState("TX");
   const [companyZip, setCompanyZip] = useState("77092");
   const [companyCountry, setCompanyCountry] = useState("USA");
-  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [issueDate, setIssueDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
   const [hrName, setHrName] = useState("Harry Mayer");
   const [hrTitle, setHrTitle] = useState("HR Manager");
   const [hrEmail, setHrEmail] = useState("hr@hrmstech.com");
   const [hrPhone, setHrPhone] = useState("+1 (555) 012-3456");
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   const companyAddressLine = `${companyStreet}`.trim();
-  const companyCityLine = `${companyCity}, ${companyState}, ${companyZip}`.trim();
+  const companyCityLine =
+    `${companyCity}, ${companyState}, ${companyZip}`.trim();
 
   function handleExport() {
     const formattedJoin = formatLongDate(dateOfJoining);
     const formattedIssue = formatLongDate(issueDate);
     const addressHtml = `${companyAddressLine}<br/>${companyCityLine}<br/>${companyCountry}`;
+    const signatureImgHTML = signatureDataUrl
+      ? `<img src="${signatureDataUrl}" style="height:64px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
+      : "";
 
     const html = `<!doctype html>
 <html>
@@ -103,12 +121,13 @@ function LoeEditor() {
       .row { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 6px; }
       .label { width: 7rem; color: #6b7280; }
       .value { font-weight: 500; }
-      .rule { height: 1px; background: #e5e7eb; margin: 16px 0; }
+      .rule { border-top: 1px solid #e5e7eb; height: 0; margin: 16px 0; }
       .para { font-size: 13px; line-height: 1.65; margin: 12px 0; }
       .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px; }
       .issued { color: #6b7280; font-size: 12px; }
       .sign-name { font-weight: 600; font-size: 18px; }
       .sign-meta { color: #6b7280; font-size: 12px; }
+      .sign { text-align: right; }
     </style>
   </head>
   <body>
@@ -127,7 +146,9 @@ function LoeEditor() {
 
           <div class="rule"></div>
 
-          <p class="para">This letter is to confirm that <strong>${employeeName}</strong> is employed with <strong>${companyName}</strong> as a <strong>${designation}</strong>${department ? ` in the <strong>${department}</strong> department` : ""} since ${formattedJoin}. The nature of employment is ${employmentType.toLowerCase()} and the current compensation is ${currentSalary}.</p>
+          <p class="para">This letter is to confirm that <strong>${employeeName}</strong> is employed with <strong>${companyName}</strong> as a <strong>${designation}</strong>${
+      department ? ` in the <strong>${department}</strong> department` : ""
+    } since ${formattedJoin}. The nature of employment is ${employmentType.toLowerCase()} and the current compensation is ${currentSalary}.</p>
 
           <p class="para">This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact ${hrName} (${hrTitle}) at ${hrEmail} or ${hrPhone}.</p>
 
@@ -136,6 +157,7 @@ function LoeEditor() {
           <div class="footer">
             <div class="issued">Issued on ${formattedIssue}</div>
             <div class="sign">
+              ${signatureImgHTML}
               <div class="sign-name">${hrName}</div>
               <div class="sign-meta">${hrTitle}</div>
               <div class="sign-meta">${companyName}</div>
@@ -160,6 +182,21 @@ function LoeEditor() {
     printWindow.focus();
   }
 
+  function handleSignatureChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "image/png") {
+      // Only PNG supported per requirement
+      const reader = new FileReader();
+      reader.onload = () => setSignatureDataUrl(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setSignatureDataUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="min-h-screen bg-[#ffffff] text-[#1a1a1a]">
       <style>{`@media print { .no-print { display: none !important; } .print-area { box-shadow: none !important; } .print-letter-card { border: 0 !important; } .print-letter-header { border: 0 !important; } .print-letter-container { max-width: 700px !important; width: 100% !important; margin: 0 auto !important; } .print-layout { border: 0 !important; padding: 0 !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { margin: 20mm; } }`}</style>
@@ -167,7 +204,9 @@ function LoeEditor() {
         <div className="max-w-[1200px] mx-auto h-[60px] flex items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-md bg-[#f97316]" />
-            <span className="text-[16px] font-semibold">LOE — Template Editor</span>
+            <span className="text-[16px] font-semibold">
+              LOE — Template Editor
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -258,7 +297,9 @@ function LoeEditor() {
                 </Field>
               </div>
 
-              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">Company</h3>
+              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
+                Company
+              </h3>
 
               <Field label="Company name">
                 <input
@@ -308,7 +349,9 @@ function LoeEditor() {
                 />
               </Field>
 
-              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">Issuance</h3>
+              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
+                Issuance
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Issue date">
                   <input
@@ -320,8 +363,20 @@ function LoeEditor() {
                 </Field>
               </div>
 
-              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">Contact</h3>
+              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
+                Contact
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <Field label="Signature (PNG)">
+                    <input
+                      type="file"
+                      accept="image/png"
+                      onChange={handleSignatureChange}
+                      className="block w-full text-[14px]"
+                    />
+                  </Field>
+                </div>
                 <Field label="HR contact name">
                   <input
                     value={hrName}
@@ -367,20 +422,44 @@ function LoeEditor() {
           {/* Right: Preview */}
           <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 md:p-6 print-layout">
             <div className="mx-auto max-w-[800px] print-letter-container">
-              <div className="rounded-md border border-[#e5e7eb] print-area print-letter-card">
-                <div className="px-6 py-4 border-b border-[#e5e7eb] text-center print-letter-header">
-                  <h2 className="text-[14px] font-semibold tracking-wide">LETTER OF EMPLOYMENT</h2>
+              <div className="rounded-md print-area print-letter-card">
+                <div className="px-6 py-4 text-center print-letter-header">
+                  <h2 className="text-[14px] font-semibold tracking-wide">
+                    LETTER OF EMPLOYMENT
+                  </h2>
                 </div>
                 <div className="px-6 py-5 text-[13px]">
                   <div className="space-y-1 text-[#111827]">
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Name</span><span className="font-medium">{employeeName}</span></div>
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Employee ID</span><span>{employeeId}</span></div>
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Designation</span><span>{designation}</span></div>
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Department</span><span>{department}</span></div>
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Employment</span><span>{employmentType}</span></div>
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Joined</span><span>{formatLongDate(dateOfJoining)}</span></div>
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Salary</span><span>{currentSalary}</span></div>
-                    <div className="flex items-start gap-2"><span className="w-28 text-[#6b7280]">Address</span>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Name</span>
+                      <span className="font-medium">{employeeName}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Employee ID</span>
+                      <span>{employeeId}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Designation</span>
+                      <span>{designation}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Department</span>
+                      <span>{department}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Employment</span>
+                      <span>{employmentType}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Joined</span>
+                      <span>{formatLongDate(dateOfJoining)}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Salary</span>
+                      <span>{currentSalary}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-[#6b7280]">Address</span>
                       <span>
                         {companyAddressLine}
                         <br />
@@ -395,16 +474,28 @@ function LoeEditor() {
 
                   <div className="space-y-4 leading-relaxed text-[#111827]">
                     <p>
-                      This letter is to confirm that <span className="font-medium">{employeeName}</span> is employed with
-                      <span className="font-medium"> {companyName}</span> as a <span className="font-medium">{designation}</span>
+                      This letter is to confirm that{" "}
+                      <span className="font-medium">{employeeName}</span> is
+                      employed with
+                      <span className="font-medium"> {companyName}</span> as a{" "}
+                      <span className="font-medium">{designation}</span>
                       {department ? (
                         <>
-                          {" "}in the <span className="font-medium">{department}</span> department
+                          {" "}
+                          in the{" "}
+                          <span className="font-medium">{department}</span>{" "}
+                          department
                         </>
-                      ) : null} since {formatLongDate(dateOfJoining)}. The nature of employment is {employmentType.toLowerCase()} and the current compensation is {currentSalary}.
+                      ) : null}{" "}
+                      since {formatLongDate(dateOfJoining)}. The nature of
+                      employment is {employmentType.toLowerCase()} and the
+                      current compensation is {currentSalary}.
                     </p>
                     <p>
-                      This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact {hrName} ({hrTitle}) at {hrEmail} or {hrPhone}.
+                      This letter is issued upon request of the employee for
+                      whatever purpose it may serve. For additional
+                      verification, please contact {hrName} ({hrTitle}) at{" "}
+                      {hrEmail} or {hrPhone}.
                     </p>
                   </div>
 
@@ -414,10 +505,24 @@ function LoeEditor() {
                     <div className="text-[12px] text-[#6b7280]">
                       Issued on {formatLongDate(issueDate)}
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end">
+                      {signatureDataUrl && (
+                        <Image
+                          src={signatureDataUrl}
+                          alt="Signature"
+                          width={220}
+                          height={64}
+                          className="h-16 w-auto max-w-[220px] object-contain mb-1 self-end ml-auto"
+                          unoptimized
+                        />
+                      )}
                       <div className="text-[18px] font-semibold">{hrName}</div>
-                      <div className="text-[12px] text-[#6b7280]">{hrTitle}</div>
-                      <div className="text-[12px] text-[#6b7280]">{companyName}</div>
+                      <div className="text-[12px] text-[#6b7280]">
+                        {hrTitle}
+                      </div>
+                      <div className="text-[12px] text-[#6b7280]">
+                        {companyName}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -430,7 +535,13 @@ function LoeEditor() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <div className="mb-1 text-[12px] text-[#6b7280]">{label}</div>
@@ -438,5 +549,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-
-
