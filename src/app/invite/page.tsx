@@ -1,12 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 
-export default function InviteSetPasswordPage() {
+function InviteSetPasswordPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const presetEmail = params.get("email") ?? "";
@@ -85,6 +85,14 @@ export default function InviteSetPasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function InviteSetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center px-6" aria-busy="true" />}> 
+      <InviteSetPasswordPageInner />
+    </Suspense>
   );
 }
 
