@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, getDocs, query, where } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, query, where, addDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import Image from "next/image";
 
 type Employee = {
@@ -80,6 +80,19 @@ function IconChevron({ dir = "down" }: { dir?: "up" | "down" }) {
 export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
+  const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
+  const [newEmpName, setNewEmpName] = useState("");
+  const [newEmpEmail, setNewEmpEmail] = useState("");
+  const [newEmpDepartmentId, setNewEmpDepartmentId] = useState("");
+  const [newEmpRoleId, setNewEmpRoleId] = useState("");
+  const [newEmpType, setNewEmpType] = useState<Employee["employeeType"]>("Full-time");
+  const [newEmpStatus, setNewEmpStatus] = useState<Employee["status"]>("Active");
+  const [newEmpLocation, setNewEmpLocation] = useState("");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({
     department: "All",
@@ -93,6 +106,7 @@ export default function EmployeesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [pendingInvites, setPendingInvites] = useState<Array<{ email: string; name?: string | null; department?: string | null; role?: string | null; createdAt?: string; status?: string; inviteUrl?: string }>>([]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -112,12 +126,13 @@ export default function EmployeesPage() {
         }
         const ref = snap.docs[0].ref;
         const parentOrg = ref.parent.parent;
-        const orgId = parentOrg ? parentOrg.id : null;
-        if (!orgId) {
+        const foundOrgId = parentOrg ? parentOrg.id : null;
+        setOrgId(foundOrgId);
+        if (!foundOrgId) {
           setEmployees([]);
           return;
         }
-        const empCol = collection(db, "organizations", orgId, "employees");
+        const empCol = collection(db, "organizations", foundOrgId, "employees");
         const empSnap = await getDocs(empCol);
         type FirestoreTimestampLike = { toDate?: () => Date } | string | null | undefined;
         const toIso = (v: FirestoreTimestampLike): string => {
@@ -148,6 +163,31 @@ export default function EmployeesPage() {
           } as Employee;
         });
         setEmployees(list);
+        // Load invites
+        const invitesCol = collection(db, "organizations", foundOrgId, "invites");
+        onSnapshot(invitesCol, (snapInv) => {
+          const invites = snapInv.docs.map((d) => {
+            const data = d.data() as Record<string, unknown>;
+            const ts = data["createdAt"] as { toDate?: () => Date } | undefined;
+            const origin = typeof window !== "undefined" ? window.location.origin : "";
+            const url = origin ? new URL(origin) : null;
+            if (url) {
+              url.pathname = "/invite";
+              url.searchParams.set("orgId", foundOrgId);
+              url.searchParams.set("email", (data["email"] as string) ?? d.id);
+            }
+            return {
+              email: (data["email"] as string) ?? d.id,
+              name: (data["name"] as string) ?? null,
+              department: (data["departmentName"] as string) ?? null,
+              role: (data["roleName"] as string) ?? null,
+              createdAt: typeof ts?.toDate === "function" ? ts!.toDate()!.toLocaleString() : undefined,
+              status: (data["status"] as string) ?? "pending",
+              inviteUrl: url ? url.toString() : undefined,
+            };
+          }).filter((i) => i.status !== "accepted");
+          setPendingInvites(invites);
+        });
       } catch {
         setEmployees([]);
       } finally {
@@ -156,6 +196,127 @@ export default function EmployeesPage() {
     });
     return () => unsub();
   }, []);
+
+  // Load departments when modal opens
+  useEffect(() => {
+    async function loadDepartments() {
+      if (!addOpen || !orgId) return;
+      try {
+        const depCol = collection(db, "organizations", orgId, "departments");
+        const depSnap = await getDocs(depCol);
+        const list: Array<{ id: string; name: string }>= depSnap.docs.map((d) => {
+          const data = d.data() as { name?: string };
+          return { id: d.id, name: data?.name ?? d.id };
+        });
+        setDepartments(list);
+      } catch {
+        setDepartments([]);
+      }
+    }
+    loadDepartments();
+  }, [addOpen, orgId]);
+
+  // Load roles when department changes
+  useEffect(() => {
+    async function loadRoles() {
+      if (!addOpen || !orgId || !newEmpDepartmentId) {
+        setRoles([]);
+        return;
+      }
+      try {
+        const rolesCol = collection(db, "organizations", orgId, "departments", newEmpDepartmentId, "roles");
+        const rolesSnap = await getDocs(rolesCol);
+        const list: Array<{ id: string; name: string }> = rolesSnap.docs.map((d) => {
+          const data = d.data() as { name?: string };
+          return { id: d.id, name: data?.name ?? d.id };
+        });
+        setRoles(list);
+      } catch {
+        setRoles([]);
+      }
+    }
+    loadRoles();
+  }, [addOpen, orgId, newEmpDepartmentId]);
+
+  async function handleAddEmployee(e: React.FormEvent) {
+    e.preventDefault();
+    setFormError("");
+    if (!orgId) {
+      setFormError("No organization context.");
+      return;
+    }
+    if (!newEmpName || !newEmpEmail || !newEmpDepartmentId || !newEmpRoleId) {
+      setFormError("Please fill all required fields.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const dept = departments.find((d) => d.id === newEmpDepartmentId);
+      const role = roles.find((r) => r.id === newEmpRoleId);
+      await addDoc(collection(db, "organizations", orgId, "employees"), {
+        name: newEmpName,
+        email: newEmpEmail.trim().toLowerCase(),
+        departmentId: newEmpDepartmentId,
+        department: dept?.name ?? "",
+        roleId: newEmpRoleId,
+        jobTitle: role?.name ?? "",
+        location: newEmpLocation,
+        employeeType: newEmpType,
+        status: newEmpStatus,
+        manager: "",
+        hireDate: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+      // Refresh list
+      const empCol = collection(db, "organizations", orgId, "employees");
+      const empSnap = await getDocs(empCol);
+      type FirestoreTimestampLike = { toDate?: () => Date } | string | null | undefined;
+      const toIso = (v: FirestoreTimestampLike): string => {
+        if (!v) return "";
+        if (typeof v === "string") return v;
+        const maybeTs = v as { toDate?: () => Date };
+        if (typeof maybeTs.toDate === "function") return maybeTs.toDate()!.toISOString();
+        return String(v as unknown);
+      };
+      const list: Employee[] = empSnap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        return {
+          id: d.id,
+          name: (data["name"] as string) ?? "",
+          employeeId: (data["employeeId"] as string) ?? d.id,
+          email: (data["email"] as string) ?? "",
+          department: (data["department"] as string) ?? "",
+          jobTitle: (data["jobTitle"] as string) ?? "",
+          manager: (data["manager"] as string) ?? "",
+          hireDate: toIso(data["hireDate"] as FirestoreTimestampLike),
+          status: (data["status"] as Employee["status"]) ?? "Active",
+          location: (data["location"] as string) ?? "",
+          employeeType: (data["employeeType"] as Employee["employeeType"]) ?? "Full-time",
+          avatarUrl: data["avatarUrl"] as string | undefined,
+          dob: ((): string | undefined => {
+            const v = toIso(data["dob"] as FirestoreTimestampLike);
+            return v || undefined;
+          })(),
+        } as Employee;
+      });
+      setEmployees(list);
+      // Close modal and reset
+      setAddOpen(false);
+      setNewEmpName("");
+      setNewEmpEmail("");
+      setNewEmpDepartmentId("");
+      setNewEmpRoleId("");
+      setNewEmpType("Full-time");
+      setNewEmpStatus("Active");
+      setNewEmpLocation("");
+      setRoles([]);
+      setDepartments([]);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Failed to add employee");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const stats = useMemo(() => {
     const total = employees.length;
@@ -273,7 +434,7 @@ export default function EmployeesPage() {
           <p className="mt-1 text-[14px] text-[#6b7280]">Manage employee records and onboarding.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827]">Add Employee</button>
+          <button className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827]" onClick={() => setAddOpen(true)}>Add Employee</button>
           <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Import</button>
           <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Export</button>
           <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Organization Chart</button>
@@ -286,7 +447,7 @@ export default function EmployeesPage() {
           { label: "Total Employees", value: stats.total },
           { label: "New Hires", value: stats.newHires },
           { label: "On Leave Today", value: stats.onLeave },
-          { label: "Pending Actions", value: stats.pending },
+          { label: "Pending Invites", value: pendingInvites.length },
         ].map((s) => (
           <div key={s.label} className="rounded-lg border border-[#e5e7eb] bg-white p-4">
             <p className="text-[12px] text-[#6b7280]">{s.label}</p>
@@ -362,6 +523,82 @@ export default function EmployeesPage() {
         </div>
       </div>
 
+      {/* Pending Invites Table */}
+      {pendingInvites.length > 0 ? (
+        <div className="mt-6 overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white">
+          <div className="p-5 border-b border-[#e5e7eb]"><h2 className="text-[16px] font-semibold">Pending Invites</h2></div>
+          <table className="hidden md:table w-full text-left">
+            <thead className="text-[12px] text-[#6b7280]">
+              <tr>
+                <th className="px-3 py-2">Invitee</th>
+                <th className="px-3 py-2">Email</th>
+                <th className="px-3 py-2">Department</th>
+                <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">Sent</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="text-[14px]">
+              {pendingInvites.map((i) => (
+                <tr key={i.email} className="hover:bg-[#f9fafb]">
+                  <td className="px-3 py-3 align-middle">{i.name || "—"}</td>
+                  <td className="px-3 py-3 align-middle">{i.email}</td>
+                  <td className="px-3 py-3 align-middle">{i.department || "—"}</td>
+                  <td className="px-3 py-3 align-middle">{i.role || "—"}</td>
+                  <td className="px-3 py-3 align-middle">{i.createdAt || ""}</td>
+                  <td className="px-3 py-3 align-middle">
+                    <span className="text-[12px] px-2 py-1 rounded-full border bg-[#fffbeb] text-[#b45309] border-[#fde68a]">Pending</span>
+                  </td>
+                  <td className="px-3 py-3 align-middle">
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]"
+                        onClick={async () => {
+                          try {
+                            if (i.inviteUrl) await navigator.clipboard.writeText(i.inviteUrl);
+                          } catch {}
+                        }}
+                      >Copy Link</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Mobile list */}
+          <div className="md:hidden divide-y divide-[#e5e7eb]">
+            {pendingInvites.map((i) => (
+              <div key={i.email} className="p-4 bg-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-[14px]">{i.name || "—"}</div>
+                    <div className="text-[12px] text-[#6b7280]">{i.email}</div>
+                  </div>
+                  <span className="text-[12px] px-2 py-1 rounded-full border bg-[#fffbeb] text-[#b45309] border-[#fde68a]">Pending</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] text-[#374151]">
+                  <div><span className="text-[#6b7280]">Department:</span> {i.department || "—"}</div>
+                  <div><span className="text-[#6b7280]">Role:</span> {i.role || "—"}</div>
+                  <div><span className="text-[#6b7280]">Sent:</span> {i.createdAt || ""}</div>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]"
+                    onClick={async () => {
+                      try {
+                        if (i.inviteUrl) await navigator.clipboard.writeText(i.inviteUrl);
+                      } catch {}
+                    }}
+                  >Copy Link</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {/* Loading skeleton */}
       {loading ? (
         <div className="mt-6 space-y-3">
@@ -415,7 +652,6 @@ export default function EmployeesPage() {
                         )}
                         <div>
                           <div className="font-medium">{e.name}</div>
-                          <div className="text-[12px] text-[#6b7280]">{e.employeeId}</div>
                         </div>
                       </div>
                     </td>
@@ -455,7 +691,6 @@ export default function EmployeesPage() {
                       )}
                       <div>
                         <div className="font-medium text-[14px]">{e.name}</div>
-                        <div className="text-[12px] text-[#6b7280]">{e.employeeId}</div>
                       </div>
                     </div>
                     <span className={`text-[12px] px-2 py-1 rounded-full border ${statusClasses(e.status)}`}>{e.status}</span>
@@ -514,6 +749,76 @@ export default function EmployeesPage() {
           </div>
         </>
       )}
+      {/* Add Employee Modal */}
+      {addOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => (!saving ? setAddOpen(false) : null)} />
+          <div className="relative bg-white rounded-lg shadow-lg w-[90vw] max-w-[720px] border border-[#e5e7eb]">
+            <div className="p-5 border-b border-[#e5e7eb] flex items-center justify-between">
+              <h2 className="text-[16px] font-semibold">Add Employee</h2>
+              <button className="text-[14px] text-[#374151]" onClick={() => (!saving ? setAddOpen(false) : null)}>Close</button>
+            </div>
+            <form onSubmit={handleAddEmployee} className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Full name</label>
+                <input value={newEmpName} onChange={(e) => setNewEmpName(e.target.value)} required className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+              </div>
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                <input type="email" value={newEmpEmail} onChange={(e) => setNewEmpEmail(e.target.value)} required className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+              </div>
+
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Department</label>
+                <select value={newEmpDepartmentId} onChange={(e) => { setNewEmpDepartmentId(e.target.value); setNewEmpRoleId(""); }} required className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] bg-white">
+                  <option value="" disabled>{departments.length ? "Select department" : "Loading…"}</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Role</label>
+                <select value={newEmpRoleId} onChange={(e) => setNewEmpRoleId(e.target.value)} required disabled={!newEmpDepartmentId || roles.length === 0} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] bg-white">
+                  <option value="" disabled>{newEmpDepartmentId ? (roles.length ? "Select role" : "No roles") : "Select department first"}</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Employment Type</label>
+                <select value={newEmpType} onChange={(e) => setNewEmpType(e.target.value as Employee["employeeType"])} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] bg-white">
+                  {(["Full-time","Part-time","Contract","Intern"] as const).map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Status</label>
+                <select value={newEmpStatus} onChange={(e) => setNewEmpStatus(e.target.value as Employee["status"])} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] bg-white">
+                  {(["Active","Probation","Inactive","On Leave"] as const).map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Location (optional)</label>
+                <input value={newEmpLocation} onChange={(e) => setNewEmpLocation(e.target.value)} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+              </div>
+
+              {formError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{formError}</p> : null}
+
+              <div className="md:col-span-2 flex items-center justify-end gap-2">
+                <button type="button" onClick={() => (!saving ? setAddOpen(false) : null)} className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]" disabled={saving}>Cancel</button>
+                <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={saving || !orgId}>{saving ? "Saving…" : "Save"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

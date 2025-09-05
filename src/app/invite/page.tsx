@@ -66,6 +66,11 @@ function InviteSetPasswordPageInner() {
         createdAt: serverTimestamp(),
       });
 
+      // Mark invite accepted
+      try {
+        await setDoc(inviteRef, { acceptedAt: serverTimestamp(), acceptedByUid: uid, status: "accepted" }, { merge: true });
+      } catch {}
+
       router.push("/employee/onboarding");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unable to set password");
