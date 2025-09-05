@@ -69,8 +69,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen grid grid-cols-[240px_1fr] bg-[#ffffff] text-[#1a1a1a]">
-      <aside className="border-r border-[#e5e7eb] p-4">
+    <div className="h-screen grid grid-cols-[240px_1fr] bg-[#ffffff] text-[#1a1a1a] overflow-hidden">
+      <aside className="border-r border-[#e5e7eb] p-4 h-screen sticky top-0 overflow-y-auto">
         <div className="px-2 py-3 flex items-center gap-2">
           <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
           <span className="text-[16px] font-semibold">HRMSTech</span>
@@ -85,6 +85,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: "/admin/performance", label: "Performance" },
             { href: "/admin/learning", label: "Learning & Development" },
             { href: "/admin/reports", label: "Reports & Analytics" },
+            { href: "/admin/templates", label: "Templates" },
             { href: "/admin/settings", label: "Company Settings" },
             { href: "/admin/system", label: "System Administration" },
           ].map((item) => (
@@ -103,7 +104,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
       </aside>
-      <main>{children}</main>
+      <main className="min-h-0 overflow-y-auto">{children}</main>
     </div>
   );
 }
