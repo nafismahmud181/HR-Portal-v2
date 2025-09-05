@@ -42,21 +42,31 @@ function InviteSetPasswordPageInner() {
       });
 
       // Create employee profile in org directory
+      const invite = inviteSnap.data() as {
+        name?: string;
+        departmentId?: string;
+        departmentName?: string;
+        roleId?: string;
+        roleName?: string;
+        employmentStatus?: string;
+      };
       await setDoc(doc(db, "organizations", presetOrg, "employees", uid), {
         employeeId: uid,
-        name: normalized.split("@")[0],
+        name: invite?.name || normalized.split("@")[0],
         email: normalized,
-        department: "",
-        jobTitle: "",
+        departmentId: invite?.departmentId || "",
+        department: invite?.departmentName || "",
+        roleId: invite?.roleId || "",
+        jobTitle: invite?.roleName || "",
         manager: "",
         hireDate: serverTimestamp(),
         status: "Active",
         location: "",
-        employeeType: "Full-time",
+        employeeType: invite?.employmentStatus || "Full-time",
         createdAt: serverTimestamp(),
       });
 
-      router.push("/employee");
+      router.push("/employee/onboarding");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unable to set password");
     } finally {

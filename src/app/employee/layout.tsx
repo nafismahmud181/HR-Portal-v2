@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { collectionGroup, getDocs, query, where } from "firebase/firestore";
+import { collectionGroup, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -30,6 +30,25 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
           setCheckingAuth(false);
           return;
         }
+
+        // Find orgId from membership and check onboarding status
+        const membershipRef = snap.docs[0].ref;
+        const parentOrg = membershipRef.parent.parent; // organizations/{orgId}
+        const orgId = parentOrg ? parentOrg.id : null;
+        if (orgId) {
+          const empRef = doc(db, "organizations", orgId, "employees", user.uid);
+          const empSnap = await getDoc(empRef);
+          const onboardingCompleted = empSnap.exists() ? (empSnap.data() as { onboardingCompleted?: boolean }).onboardingCompleted === true : false;
+          const onOnboardingPage = pathname === "/employee/onboarding";
+          if (!onboardingCompleted && !onOnboardingPage) {
+            router.replace("/employee/onboarding");
+            return;
+          }
+          if (onboardingCompleted && onOnboardingPage) {
+            router.replace("/employee");
+            return;
+          }
+        }
       } catch {
         setNotFound(true);
         setCheckingAuth(false);
@@ -38,7 +57,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       setCheckingAuth(false);
     });
     return () => unsub();
-  }, [router]);
+  }, [router, pathname]);
 
   if (checkingAuth) {
     return null;
