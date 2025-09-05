@@ -26,9 +26,9 @@ export default function ResetPasswordPage() {
         const mail = await verifyPasswordResetCode(auth, oobCode);
         setEmail(mail);
         setStatus("ready");
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus("error");
-        setMessage(err?.message ?? "This reset link is invalid or expired.");
+        setMessage(err instanceof Error ? err.message : "This reset link is invalid or expired.");
       }
     }
     verify();
@@ -54,9 +54,9 @@ export default function ResetPasswordPage() {
       setStatus("done");
       setMessage("Password updated. Redirecting to login...");
       setTimeout(() => router.push("/login"), 1200);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus("error");
-      setMessage(err?.message ?? "Could not reset password.");
+      setMessage(err instanceof Error ? err.message : "Could not reset password.");
     }
   }
 

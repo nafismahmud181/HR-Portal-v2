@@ -3,8 +3,6 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, browserLocalPersistence, setPersistence, type Auth } from "firebase/auth";
 
 let firebaseApp: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,12 +19,12 @@ if (!getApps().length) {
   firebaseApp = getApp();
 }
 
-auth = getAuth(firebaseApp);
+const auth: Auth = getAuth(firebaseApp);
 setPersistence(auth, browserLocalPersistence).catch(() => {
   // Non-fatal; persistence might not be available in some environments
 });
 
-db = getFirestore(firebaseApp);
+const db: Firestore = getFirestore(firebaseApp);
 
 export { firebaseApp, auth, db };
 

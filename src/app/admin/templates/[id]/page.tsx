@@ -214,79 +214,79 @@ function LoeEditor() {
     printWindow.focus();
   }
 
-  function addCurrentToBulk() {
-    setBulkItems((prev) => [
-      ...prev,
-      {
-        employeeName,
-        designation,
-        department,
-        employmentType,
-        employeeId,
-        dateOfJoining,
-        currentSalary,
-      },
-    ]);
-  }
+  // function addCurrentToBulk() {
+  //   setBulkItems((prev) => [
+  //     ...prev,
+  //     {
+  //       employeeName,
+  //       designation,
+  //       department,
+  //       employmentType,
+  //       employeeId,
+  //       dateOfJoining,
+  //       currentSalary,
+  //     },
+  //   ]);
+  // }
 
   function removeBulkItem(index: number) {
     setBulkItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleBulkCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const text = String(reader.result || "");
-        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-        if (lines.length === 0) return;
-        let startIdx = 0;
-        const header = lines[0].toLowerCase();
-        const hasHeader = [
-          "name",
-          "employee",
-          "designation",
-          "department",
-        ].some((h) => header.includes(h));
-        if (hasHeader) startIdx = 1;
-        const parsed: Array<{
-          employeeName: string;
-          designation: string;
-          department: string;
-          employmentType: string;
-          employeeId: string;
-          dateOfJoining: string;
-          currentSalary: string;
-        }> = [];
-        for (let i = startIdx; i < lines.length; i++) {
-          const cols = lines[i].split(",").map((c) => c.trim());
-          const [
-            nameCol,
-            empIdCol,
-            titleCol,
-            deptCol,
-            typeCol,
-            joinCol,
-            salaryCol,
-          ] = cols;
-          if (!nameCol) continue;
-          parsed.push({
-            employeeName: nameCol,
-            employeeId: empIdCol || "",
-            designation: titleCol || "",
-            department: deptCol || "",
-            employmentType: typeCol || employmentType,
-            dateOfJoining: joinCol || dateOfJoining,
-            currentSalary: salaryCol || currentSalary,
-          });
-        }
-        if (parsed.length > 0) setBulkItems((prev) => [...prev, ...parsed]);
-      } catch {}
-    };
-    reader.readAsText(file);
-  }
+  // function handleBulkCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
+  //   const reader = new FileReader();
+  //   reader.onload = () => {
+  //     try {
+  //       const text = String(reader.result || "");
+  //       const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  //       if (lines.length === 0) return;
+  //       let startIdx = 0;
+  //       const header = lines[0].toLowerCase();
+  //       const hasHeader = [
+  //         "name",
+  //         "employee",
+  //         "designation",
+  //         "department",
+  //       ].some((h) => header.includes(h));
+  //       if (hasHeader) startIdx = 1;
+  //       const parsed: Array<{
+  //         employeeName: string;
+  //         designation: string;
+  //         department: string;
+  //         employmentType: string;
+  //         employeeId: string;
+  //         dateOfJoining: string;
+  //         currentSalary: string;
+  //       }> = [];
+  //       for (let i = startIdx; i < lines.length; i++) {
+  //         const cols = lines[i].split(",").map((c) => c.trim());
+  //         const [
+  //           nameCol,
+  //           empIdCol,
+  //           titleCol,
+  //           deptCol,
+  //           typeCol,
+  //           joinCol,
+  //           salaryCol,
+  //         ] = cols;
+  //         if (!nameCol) continue;
+  //         parsed.push({
+  //           employeeName: nameCol,
+  //           employeeId: empIdCol || "",
+  //           designation: titleCol || "",
+  //           department: deptCol || "",
+  //           employmentType: typeCol || employmentType,
+  //           dateOfJoining: joinCol || dateOfJoining,
+  //           currentSalary: salaryCol || currentSalary,
+  //         });
+  //       }
+  //       if (parsed.length > 0) setBulkItems((prev) => [...prev, ...parsed]);
+  //     } catch {}
+  //   };
+  //   reader.readAsText(file);
+  // }
 
   async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -523,7 +523,7 @@ function LoeEditor() {
                 </div>
               </div>
 
-              
+
               <h2 className="text-[16px] font-semibold">Employment Details</h2>
 
               <Field label="Full name">

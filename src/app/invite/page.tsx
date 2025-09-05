@@ -57,8 +57,8 @@ export default function InviteSetPasswordPage() {
       });
 
       router.push("/employee");
-    } catch (err: any) {
-      setError(err?.message ?? "Unable to set password");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unable to set password");
     } finally {
       setLoading(false);
     }

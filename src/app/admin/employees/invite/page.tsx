@@ -57,7 +57,10 @@ export default function InviteEmployeePage() {
       try {
         const depCol = collection(db, "organizations", orgId, "departments");
         const depSnap = await getDocs(depCol);
-        const list: Array<{ id: string; name: string }> = depSnap.docs.map((d) => ({ id: d.id, name: (d.data() as any)?.name || d.id }));
+        const list: Array<{ id: string; name: string }> = depSnap.docs.map((d) => {
+          const data = d.data() as { name?: string };
+          return { id: d.id, name: data?.name ?? d.id };
+        });
         setDepartments(list);
       } catch (e) {
         console.error("Failed to load departments", e);
@@ -77,7 +80,10 @@ export default function InviteEmployeePage() {
       try {
         const rolesCol = collection(db, "organizations", orgId, "departments", departmentId, "roles");
         const rolesSnap = await getDocs(rolesCol);
-        const list: Array<{ id: string; name: string }> = rolesSnap.docs.map((d) => ({ id: d.id, name: (d.data() as any)?.name || d.id }));
+        const list: Array<{ id: string; name: string }> = rolesSnap.docs.map((d) => {
+          const data = d.data() as { name?: string };
+          return { id: d.id, name: data?.name ?? d.id };
+        });
         setRoles(list);
       } catch (e) {
         console.error("Failed to load roles", e);
@@ -192,7 +198,7 @@ export default function InviteEmployeePage() {
           </div>
           <div>
             <label htmlFor="employment" className="block mb-1 text-[14px] font-medium text-[#374151]">Status</label>
-            <select id="employment" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value as any)}>
+            <select id="employment" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value as typeof employmentStatus)}>
               <option>Probationary</option>
               <option>Part-time</option>
               <option>Full-time</option>
