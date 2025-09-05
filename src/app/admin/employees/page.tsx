@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, collectionGroup, getDocs, query, where } from "firebase/firestore";
+import Image from "next/image";
 
 type Employee = {
   id: string;
@@ -74,78 +75,7 @@ function IconChevron({ dir = "down" }: { dir?: "up" | "down" }) {
   );
 }
 
-const MOCK_EMPLOYEES: Employee[] = [
-  {
-    id: "1",
-    name: "Ava Johnson",
-    employeeId: "E-1001",
-    email: "ava.johnson@company.com",
-    department: "Engineering",
-    jobTitle: "Frontend Developer",
-    manager: "Liam Patel",
-    hireDate: "2024-04-15",
-    status: "Active",
-    location: "New York",
-    employeeType: "Full-time",
-    dob: "1995-04-10",
-  },
-  {
-    id: "2",
-    name: "Noah Smith",
-    employeeId: "E-1002",
-    email: "noah.smith@company.com",
-    department: "People Ops",
-    jobTitle: "HR Generalist",
-    manager: "Mia Nguyen",
-    hireDate: "2025-02-01",
-    status: "Probation",
-    location: "Remote",
-    employeeType: "Full-time",
-    dob: "1993-05-22",
-  },
-  {
-    id: "3",
-    name: "Sophia Chen",
-    employeeId: "E-1003",
-    email: "sophia.chen@company.com",
-    department: "Finance",
-    jobTitle: "Accountant",
-    manager: "Harper Singh",
-    hireDate: "2023-09-10",
-    status: "On Leave",
-    location: "London",
-    employeeType: "Part-time",
-    dob: "1990-12-03",
-  },
-  {
-    id: "4",
-    name: "Ethan Garcia",
-    employeeId: "E-1004",
-    email: "ethan.garcia@company.com",
-    department: "Engineering",
-    jobTitle: "Backend Developer",
-    manager: "Liam Patel",
-    hireDate: "2021-03-05",
-    status: "Inactive",
-    location: "Berlin",
-    employeeType: "Contract",
-    dob: "1991-01-17",
-  },
-  {
-    id: "5",
-    name: "Olivia Brown",
-    employeeId: "E-1005",
-    email: "olivia.brown@company.com",
-    department: "Design",
-    jobTitle: "Product Designer",
-    manager: "Ava Johnson",
-    hireDate: "2025-03-20",
-    status: "Active",
-    location: "San Francisco",
-    employeeType: "Full-time",
-    dob: "1994-03-20",
-  },
-];
+// Removed unused MOCK_EMPLOYEES to satisfy linter in CI
 
 export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
@@ -189,23 +119,32 @@ export default function EmployeesPage() {
         }
         const empCol = collection(db, "organizations", orgId, "employees");
         const empSnap = await getDocs(empCol);
+        type FirestoreTimestampLike = { toDate?: () => Date } | string | null | undefined;
+        const toIso = (v: FirestoreTimestampLike): string => {
+          if (!v) return "";
+          if (typeof v === "string") return v;
+          if (typeof v.toDate === "function") return v.toDate()!.toISOString();
+          return String(v as unknown);
+        };
         const list: Employee[] = empSnap.docs.map((d) => {
-          const data: any = d.data();
-          const toIso = (v: any) => (v && typeof v.toDate === "function" ? v.toDate().toISOString() : v ? String(v) : "");
+          const data = d.data() as Record<string, unknown>;
           return {
             id: d.id,
-            name: data.name ?? "",
-            employeeId: data.employeeId ?? d.id,
-            email: data.email ?? "",
-            department: data.department ?? "",
-            jobTitle: data.jobTitle ?? "",
-            manager: data.manager ?? "",
-            hireDate: toIso(data.hireDate),
-            status: (data.status as Employee["status"]) ?? "Active",
-            location: data.location ?? "",
-            employeeType: data.employeeType ?? "Full-time",
-            avatarUrl: data.avatarUrl,
-            dob: toIso(data.dob) || undefined,
+            name: (data["name"] as string) ?? "",
+            employeeId: (data["employeeId"] as string) ?? d.id,
+            email: (data["email"] as string) ?? "",
+            department: (data["department"] as string) ?? "",
+            jobTitle: (data["jobTitle"] as string) ?? "",
+            manager: (data["manager"] as string) ?? "",
+            hireDate: toIso(data["hireDate"] as FirestoreTimestampLike),
+            status: (data["status"] as Employee["status"]) ?? "Active",
+            location: (data["location"] as string) ?? "",
+            employeeType: (data["employeeType"] as Employee["employeeType"]) ?? "Full-time",
+            avatarUrl: data["avatarUrl"] as string | undefined,
+            dob: ((): string | undefined => {
+              const v = toIso(data["dob"] as FirestoreTimestampLike);
+              return v || undefined;
+            })(),
           } as Employee;
         });
         setEmployees(list);
@@ -468,7 +407,7 @@ export default function EmployeesPage() {
                     <td className="px-3 py-3 align-middle">
                       <div className="flex items-center gap-3">
                         {e.avatarUrl ? (
-                          <img src={e.avatarUrl} alt={e.name} className="h-9 w-9 rounded-full object-cover" />
+                          <Image src={e.avatarUrl} alt={e.name} width={36} height={36} className="h-9 w-9 rounded-full object-cover" unoptimized />
                         ) : (
                           <div className="h-9 w-9 rounded-full grid place-items-center text-[12px] font-medium text-white" style={{ backgroundColor: "#4f46e5" }}>
                             {getInitials(e.name)}
@@ -508,7 +447,7 @@ export default function EmployeesPage() {
                     <div className="flex items-center gap-3">
                       <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleSelect(e.id)} />
                       {e.avatarUrl ? (
-                        <img src={e.avatarUrl} alt={e.name} className="h-8 w-8 rounded-full object-cover" />
+                        <Image src={e.avatarUrl} alt={e.name} width={32} height={32} className="h-8 w-8 rounded-full object-cover" unoptimized />
                       ) : (
                         <div className="h-8 w-8 rounded-full grid place-items-center text-[11px] font-medium text-white" style={{ backgroundColor: "#4f46e5" }}>
                           {getInitials(e.name)}
