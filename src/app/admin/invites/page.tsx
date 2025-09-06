@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, collectionGroup, getDocs, onSnapshot, query, where } from "firebase/firestore";
+import Link from "next/link";
 
 type InviteRow = { email: string; name?: string | null; department?: string | null; role?: string | null; createdAt?: string; status?: string; inviteUrl?: string };
 
@@ -78,6 +79,9 @@ export default function AdminInvitesPage() {
         <div>
           <h1 className="text-[22px] font-semibold">Invites</h1>
           <p className="mt-1 text-[14px] text-[#6b7280]">Track pending and accepted invitations.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/employees/invite" className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Invite Employee</Link>
         </div>
       </div>
 

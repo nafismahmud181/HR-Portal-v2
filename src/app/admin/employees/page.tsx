@@ -2,8 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, getDocs, query, where, addDoc, serverTimestamp, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, query, where, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import Image from "next/image";
+import Link from "next/link";
 
 type Employee = {
   id: string;
@@ -131,6 +132,7 @@ export default function EmployeesPage() {
   const [viewEmp, setViewEmp] = useState<Record<string, unknown> | null>(null);
   const [viewError, setViewError] = useState("");
   const [savingView, setSavingView] = useState(false);
+  const [deletingEmpId, setDeletingEmpId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -422,6 +424,26 @@ export default function EmployeesPage() {
     setSelected(next);
   }
 
+  async function deleteEmployee(employeeId: string) {
+    if (!orgId) return;
+    const confirmed = typeof window === "undefined" ? true : window.confirm("Delete this employee record? This cannot be undone.");
+    if (!confirmed) return;
+    setDeletingEmpId(employeeId);
+    try {
+      // Delete employee directory record
+      await deleteDoc(doc(db, "organizations", orgId, "employees", employeeId));
+      // Attempt to delete membership if it uses same id
+      try {
+        const userRef = doc(db, "organizations", orgId, "users", employeeId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) await deleteDoc(userRef);
+      } catch {}
+      setEmployees((list) => list.filter((e) => e.id !== employeeId));
+    } finally {
+      setDeletingEmpId(null);
+    }
+  }
+
   return (
     <div className="px-6 py-8">
       {/* Header */}
@@ -434,6 +456,7 @@ export default function EmployeesPage() {
           <p className="mt-1 text-[14px] text-[#6b7280]">Manage employee records and onboarding.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/admin/employees/invite" className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Invite Employee</Link>
           <button className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827]" onClick={() => setAddOpen(true)}>Add Employee</button>
           <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]" onClick={() => { setImportOpen(true); setImportError(""); }}>Bulk Import</button>
           <button className="rounded-md border border-[#d1d5db] px-4 py-2 text-[14px] hover:bg-[#f9fafb]">Export</button>
@@ -609,7 +632,7 @@ export default function EmployeesPage() {
                           }
                         }}>View</button>
                         <button className="text-[#374151] hover:underline">Edit</button>
-                        <button className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]">More</button>
+                        <button className="text-[#b91c1c] hover:underline" disabled={deletingEmpId === e.id} onClick={() => deleteEmployee(e.id)}>{deletingEmpId === e.id ? "Deleting…" : "Delete"}</button>
                       </div>
                     </td>
                   </tr>
@@ -647,7 +670,7 @@ export default function EmployeesPage() {
                   <div className="mt-3 flex items-center gap-2">
                     <button className="text-[#374151] hover:underline">View</button>
                     <button className="text-[#374151] hover:underline">Edit</button>
-                    <button className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]">More</button>
+                    <button className="text-[#b91c1c] hover:underline" disabled={deletingEmpId === e.id} onClick={() => deleteEmployee(e.id)}>{deletingEmpId === e.id ? "Deleting…" : "Delete"}</button>
                   </div>
                 </div>
               ))}
