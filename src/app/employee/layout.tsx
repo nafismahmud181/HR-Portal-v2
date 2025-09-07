@@ -24,10 +24,15 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
         const cg = collectionGroup(db, "users");
         const q = query(cg, where("uid", "==", user.uid));
         const snap = await getDocs(q);
-        const role = !snap.empty ? (snap.docs[0].data() as { role?: string }).role : undefined;
+        if (snap.empty) {
+          await signOut(auth);
+          router.replace("/login");
+          return;
+        }
+        const role = (snap.docs[0].data() as { role?: string }).role;
         if (role !== "employee") {
-          setNotFound(true);
-          setCheckingAuth(false);
+          await signOut(auth);
+          router.replace("/login");
           return;
         }
 
@@ -50,8 +55,8 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
           }
         }
       } catch {
-        setNotFound(true);
-        setCheckingAuth(false);
+        await signOut(auth);
+        router.replace("/login");
         return;
       }
       setCheckingAuth(false);
