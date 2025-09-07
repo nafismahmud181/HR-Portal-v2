@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { collection, collectionGroup, doc, getDocs, onSnapshot, query, updateDoc, where, orderBy, limit } from "firebase/firestore";
 
 type PendingItem = { id: string; userId: string; name: string; type: string; fromDate: string; toDate: string; createdAt?: string };
 
@@ -11,6 +11,7 @@ export default function AdminDashboardPage() {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [empById, setEmpById] = useState<Record<string, string>>({});
+  const [activities, setActivities] = useState<Array<{ what: string; whoId: string; when: string }>>([]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -51,7 +52,23 @@ export default function AdminDashboardPage() {
         });
         setPending(list);
       });
-      return () => { offEmp(); offLeaves(); };
+      // Recent activities from latest leave submissions (and approvals)
+      const qRecent = query(leavesCol, orderBy("createdAt", "desc"), limit(10));
+      const offRecent = onSnapshot(qRecent, (s) => {
+        const acts: Array<{ what: string; whoId: string; when: string }> = [];
+        s.forEach((d) => {
+          const data = d.data() as Record<string, unknown> & { status?: string; reviewedAt?: string; userId?: string; type?: string };
+          const status = (data.status as string) || "pending";
+          const userId = (data.userId as string) || "";
+          const createdTs = data["createdAt"] as { toDate?: () => Date } | undefined;
+          const createdAt = typeof createdTs?.toDate === "function" ? createdTs!.toDate()!.toLocaleString() : "";
+          const when = status === "pending" ? createdAt : ((data.reviewedAt as string) || createdAt);
+          const what = status === "approved" ? `Approved leave request` : status === "rejected" ? `Rejected leave request` : `Submitted leave request`;
+          acts.push({ what, whoId: userId, when });
+        });
+        setActivities(acts);
+      });
+      return () => { offEmp(); offLeaves(); offRecent(); };
     });
     return () => unsub();
   }, []);
@@ -123,16 +140,13 @@ export default function AdminDashboardPage() {
           <section aria-label="Recent Activities" className="lg:col-span-2 rounded-lg border border-[#e5e7eb] bg-white">
             <div className="p-5 border-b border-[#e5e7eb]"><h2 className="text-[18px] font-semibold">Recent Activities</h2></div>
             <ul className="divide-y divide-[#e5e7eb]">
-              {[
-                { who: 'Amelia Hart', what: 'Approved leave request', when: '2h ago' },
-                { who: 'Rohan Patel', what: 'Added new employee: Priya K.', when: '5h ago' },
-                { who: 'Payroll', what: 'Generated payslips for March', when: '1d ago' },
-                { who: 'IT', what: 'Updated security policy', when: '2d ago' },
-              ].map((a, idx) => (
+              {activities.length === 0 ? (
+                <li className="p-5 text-[14px] text-[#6b7280]">No recent activity.</li>
+              ) : activities.map((a, idx) => (
                 <li key={idx} className="p-5 flex items-center justify-between">
                   <div>
                     <p className="text-[14px] font-medium">{a.what}</p>
-                    <p className="text-[12px] text-[#6b7280]">{a.who}</p>
+                    <p className="text-[12px] text-[#6b7280]">{empById[a.whoId] || a.whoId}</p>
                   </div>
                   <span className="text-[12px] text-[#6b7280]">{a.when}</span>
                 </li>
