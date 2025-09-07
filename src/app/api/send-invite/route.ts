@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     const resend = new Resend(apiKey);
-    const subject = `You're invited to ${orgName ?? "our HRMS"}`;
+    const subject = `You're invited to ${orgName ?? "our HRMS"}`.replace(/'/g, "\u2019");
     const html = `
 <div style="max-width: 540px; margin: 0 auto; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6;">
   
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       Welcome aboard!
     </h1>
     <p style="color: #6b7280; margin: 0; font-size: 16px;">
-      ${orgName ? `You've been invited to join ${orgName}` : "You've been invited to join our team"}
+      ${orgName ? `You\u2019ve been invited to join ${orgName}` : "You\u2019ve been invited to join our team"}
     </p>
   </div>
 
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
   <!-- Footer -->
   <div style="padding: 24px 32px; border-top: 1px solid #f3f4f6; text-align: center;">
     <p style="color: #9ca3af; margin: 0; font-size: 12px;">
-      If you didn't request this invitation, please ignore this email.
+      If you didn\u2019t request this invitation, please ignore this email.
     </p>
     <p style="color: #d1d5db; margin: 8px 0 0; font-size: 11px;">
       This is an automated message from your HRMS system.

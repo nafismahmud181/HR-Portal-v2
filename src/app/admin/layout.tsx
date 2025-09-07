@@ -11,6 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [signingOut, setSigningOut] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -74,8 +75,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="h-screen grid grid-cols-[240px_1fr] print:grid-cols-1 bg-[#ffffff] text-[#1a1a1a] overflow-hidden">
-      <aside className="border-r border-[#e5e7eb] p-4 h-screen sticky top-0 overflow-y-auto print:hidden">
+    <div className="h-screen grid grid-cols-1 md:grid-cols-[240px_1fr] print:grid-cols-1 bg-[#ffffff] text-[#1a1a1a] overflow-hidden">
+      <aside className="hidden md:block border-r border-[#e5e7eb] p-4 h-screen sticky top-0 overflow-y-auto print:hidden">
         <div className="px-2 py-3 flex items-center gap-2">
           <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
           <span className="text-[16px] font-semibold">HRMSTech</span>
@@ -111,7 +112,59 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
       </aside>
-      <main className="min-h-0 overflow-y-auto print:overflow-visible print:h-auto">{children}</main>
+
+      {mobileOpen ? (
+        <div className="md:hidden">
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="fixed inset-y-0 left-0 z-50 w-[260px] bg-white border-r border-[#e5e7eb] p-4 overflow-y-auto">
+            <div className="px-2 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
+                <span className="text-[16px] font-semibold">HRMSTech</span>
+              </div>
+              <button className="text-[14px] border border-[#d1d5db] px-2 py-1 rounded" onClick={() => setMobileOpen(false)}>Close</button>
+            </div>
+            <nav className="mt-4 flex flex-col text-[14px]">
+              {[
+                { href: "/admin", label: "Dashboard" },
+                { href: "/admin/employees", label: "Employees" },
+                { href: "/admin/invites", label: "Invites" },
+                { href: "/admin/recruitment", label: "Recruitment" },
+                { href: "/admin/time", label: "Time & Attendance" },
+                { href: "/admin/leave", label: "Leave" },
+                { href: "/admin/payroll", label: "Payroll" },
+                { href: "/admin/performance", label: "Performance" },
+                { href: "/admin/learning", label: "Learning & Development" },
+                { href: "/admin/reports", label: "Reports & Analytics" },
+                { href: "/admin/templates", label: "Templates" },
+                { href: "/admin/settings", label: "Company Settings" },
+                { href: "/admin/system", label: "System Administration" },
+              ].map((item) => (
+                <Link key={item.href} href={item.href} className="px-2 py-2 rounded hover:bg-[#f9fafb]" onClick={() => setMobileOpen(false)}>
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="mt-6 pt-4 border-t border-[#e5e7eb]">
+              <button
+                onClick={handleLogout}
+                disabled={signingOut}
+                className="w-full text-left px-2 py-2 rounded border border-[#d1d5db] hover:bg-[#f9fafb] text-[14px]"
+              >
+                {signingOut ? "Logging out…" : "Log out"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <main className="min-h-0 overflow-y-auto print:overflow-visible print:h-auto">
+        <div className="md:hidden flex items-center justify-between p-4 border-b border-[#e5e7eb]">
+          <button type="button" aria-label="Open menu" className="rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" onClick={() => setMobileOpen(true)}>Menu</button>
+          <span className="text-[16px] font-semibold">Admin</span>
+        </div>
+        {children}
+      </main>
     </div>
   );
 }
