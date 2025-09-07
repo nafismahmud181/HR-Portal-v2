@@ -194,10 +194,21 @@ service cloud.firestore {
       allow create: if isSignedIn() && 
         exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/users/$(request.auth.uid));
       
-      // Allow update if user belongs to the same organization
-      allow update: if isSignedIn() && 
+      // Allow update:
+      // - Admins can update status/approver fields
+      // - Request owner can update their own request while pending and only certain fields
+      allow update: if isSignedIn() &&
         request.resource.data.organizationId == resource.data.organizationId &&
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid));
+        (
+          // Admin path
+          (exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin' &&
+           request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy','comment']))
+          ||
+          // Employee (owner) path
+          (resource.data.userId == request.auth.uid && resource.data.status == 'pending' &&
+           request.resource.data.diff(resource.data).changedKeys().hasOnly(['fromDate','toDate','type','reason']))
+        );
       
       // Allow delete if user belongs to the same organization and is admin
       allow delete: if isSignedIn() && 
