@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, collectionGroup, getDocs, onSnapshot, query, updateDoc, where, doc } from "firebase/firestore";
@@ -85,6 +85,9 @@ export default function AdminLeavePage() {
       <h1 className="text-[22px] font-semibold">Leave Requests</h1>
       <p className="mt-2 text-[14px] text-[#6b7280]">Review and approve employee leave.</p>
 
+      {/* Calendar view */}
+      <CalendarView orgId={orgId} rows={rows} empById={empById} />
+
       <div className="mt-6 overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white">
         <table className="hidden md:table w-full text-left">
           <thead className="text-[12px] text-[#6b7280]">
@@ -146,6 +149,74 @@ export default function AdminLeavePage() {
       </div>
       {err ? <p className="mt-3 text-[13px] text-[#b91c1c]">{err}</p> : null}
     </div>
+  );
+}
+
+function CalendarView({ orgId, rows, empById }: { orgId: string | null; rows: AdminLeaveRow[]; empById: Record<string, string> }) {
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const days = useMemo(() => {
+    const [y, m] = month.split('-').map((n) => parseInt(n, 10));
+    const start = new Date(y, m - 1, 1);
+    const end = new Date(y, m, 0);
+    const list: Array<{ date: string; label: string }> = [];
+    for (let d = 1; d <= end.getDate(); d++) {
+      const dt = new Date(y, m - 1, d);
+      const label = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      list.push({ date: iso, label });
+    }
+    return list;
+  }, [month]);
+
+  const byDay = useMemo(() => {
+    const map: Record<string, Array<{ name: string; type: string; status: string }>> = {};
+    rows.forEach((r) => {
+      const start = new Date(r.fromDate);
+      const end = new Date(r.toDate);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        (map[iso] ||= []).push({ name: empById[r.userId] || r.userId, type: r.type, status: r.status });
+      }
+    });
+    return map;
+  }, [rows, empById]);
+
+  return (
+    <section className="mt-6 rounded-lg border border-[#e5e7eb] bg-white">
+      <div className="p-5 border-b border-[#e5e7eb] flex items-center gap-3">
+        <h2 className="text-[16px] font-semibold">Leave Calendar</h2>
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="ml-auto rounded-md border border-[#d1d5db] px-3 py-1.5 text-[14px]"
+        />
+      </div>
+      <div className="p-4 overflow-x-auto">
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(80px, 1fr))` }}>
+          {days.map((d) => {
+            const list = byDay[d.date] || [];
+            return (
+              <div key={d.date} className="border border-[#e5e7eb] min-h-[90px]">
+                <div className="px-2 py-1 text-[12px] text-[#6b7280] border-b border-[#e5e7eb]">{d.label}</div>
+                <div className="p-2 space-y-1">
+                  {list.slice(0, 3).map((p, idx) => (
+                    <div key={idx} className={`text-[11px] px-2 py-1 rounded ${p.status === 'approved' ? 'bg-[#ecfdf5] text-[#065f46]' : p.status === 'rejected' ? 'bg-[#fef2f2] text-[#991b1b]' : 'bg-[#fffbeb] text-[#92400e]'}`}>{p.name} • {p.type}</div>
+                  ))}
+                  {list.length > 3 ? (
+                    <div className="text-[11px] text-[#6b7280]">+{list.length - 3} more</div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
 
