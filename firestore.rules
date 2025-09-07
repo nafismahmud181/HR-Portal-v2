@@ -154,6 +154,29 @@ service cloud.firestore {
         // Only admins can delete employee records
         allow delete: if isOrgAdmin(orgId);
       }
+
+      // Leave Requests - organization scoped
+      match /leaveRequests/{requestId} {
+        // Read: any org member can read org leave requests
+        allow read: if isOrgMember(orgId);
+
+        // Create: signed-in org member creates their own request
+        allow create: if isOrgMember(orgId) && request.resource.data.userId == request.auth.uid;
+
+        // Update rules:
+        // - Admins can change status and review metadata
+        // - Owner can modify while pending and only basic fields
+        allow update: if (
+          isOrgAdmin(orgId) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy','comment'])
+        ) || (
+          isOrgMember(orgId) && request.auth.uid == resource.data.userId && resource.data.status == 'pending' &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['fromDate','toDate','type','reason'])
+        );
+
+        // Delete: admins only
+        allow delete: if isOrgAdmin(orgId);
+      }
     }
 
     // Collection group access for organization users (needed for collectionGroup queries)
@@ -184,37 +207,7 @@ service cloud.firestore {
         get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Leave Requests - Organization Isolation
-    match /leaveRequests/{requestId} {
-      // Allow read only if user belongs to the same organization as the leave request
-      allow read: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow create if user is authenticated and setting their own organization
-      allow create: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow update:
-      // - Admins can update status/approver fields
-      // - Request owner can update their own request while pending and only certain fields
-      allow update: if isSignedIn() &&
-        request.resource.data.organizationId == resource.data.organizationId &&
-        (
-          // Admin path
-          (exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)) &&
-           get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin' &&
-           request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy','comment']))
-          ||
-          // Employee (owner) path
-          (resource.data.userId == request.auth.uid && resource.data.status == 'pending' &&
-           request.resource.data.diff(resource.data).changedKeys().hasOnly(['fromDate','toDate','type','reason']))
-        );
-      
-      // Allow delete if user belongs to the same organization and is admin
-      allow delete: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin';
-    }
+    // (legacy) Top-level leaveRequests no longer used
 
     // Leave Balances - Organization Isolation
     match /leaveBalances/{balanceId} {

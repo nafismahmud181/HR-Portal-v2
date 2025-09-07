@@ -44,8 +44,8 @@ export default function AdminLeavePage() {
           setEmpById(map);
         });
 
-        const col = collection(db, "leaveRequests");
-        const qLeaves = query(col, where("organizationId", "==", foundOrgId));
+        const col = collection(db, "organizations", foundOrgId, "leaveRequests");
+        const qLeaves = query(col);
         const offLeaves = onSnapshot(qLeaves, async (s) => {
           const list: AdminLeaveRow[] = [];
           s.forEach((d) => {

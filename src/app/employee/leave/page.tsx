@@ -32,8 +32,8 @@ export default function EmployeeLeavePage() {
   // Subscribe to my leave requests once orgId and user are available
   useEffect(() => {
     if (!orgId || !auth.currentUser) return;
-    const col = collection(db, "leaveRequests");
-    const qLeaves = query(col, where("organizationId", "==", orgId));
+    const col = collection(db, "organizations", orgId, "leaveRequests");
+    const qLeaves = query(col);
     const off = onSnapshot(qLeaves, (snap) => {
       const list = snap.docs.map((d) => {
         const data = d.data() as Record<string, unknown>;
@@ -61,9 +61,8 @@ export default function EmployeeLeavePage() {
     if (!orgId || !auth.currentUser) return;
     setSaving(true);
     try {
-      const col = collection(db, "leaveRequests");
+      const col = collection(db, "organizations", orgId, "leaveRequests");
       await addDoc(col, {
-        organizationId: orgId,
         userId: auth.currentUser.uid,
         type,
         fromDate,
