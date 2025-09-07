@@ -81,8 +81,12 @@ service cloud.firestore {
       match /invites/{email} {
         // Only admins can create or delete invites
         allow create, delete: if isOrgAdmin(orgId);
-        // Admins can read; invitee can read their own invite doc
-        allow read: if isOrgAdmin(orgId) || (isSignedIn() && request.auth.token.email == email);
+        // Admins can read; invitee can read their own invite doc until accepted
+        allow read: if isOrgAdmin(orgId) || (
+          isSignedIn() &&
+          request.auth.token.email == email &&
+          (!resource.data.status || resource.data.status != 'accepted' || resource.data.acceptedByUid == request.auth.uid)
+        );
         // Allow limited updates:
         // - Admins may mark status/acceptedAt/acceptedByUid
         // - Invitee (by matching auth token email) may mark their own acceptance
