@@ -34,10 +34,11 @@ function InviteSetPasswordPageInner() {
       const inviteSnap = await getDoc(inviteRef);
       if (!inviteSnap.exists()) throw new Error("Invite not found or expired");
 
+      const inviteData = inviteSnap.data() as { orgRole?: "employee" | "manager" | "admin" } | undefined;
       await setDoc(doc(db, "organizations", presetOrg, "users", uid), {
         uid,
         email: normalized,
-        role: "employee",
+        role: inviteData?.orgRole || "employee",
         createdAt: serverTimestamp(),
       });
 
@@ -70,8 +71,14 @@ function InviteSetPasswordPageInner() {
       try {
         await setDoc(inviteRef, { acceptedAt: serverTimestamp(), acceptedByUid: uid, status: "accepted" }, { merge: true });
       } catch {}
-
-      router.push("/employee/onboarding");
+      // Redirect based on role
+      if ((inviteData?.orgRole || "employee") === "admin") {
+        router.push("/admin");
+      } else if ((inviteData?.orgRole || "employee") === "manager") {
+        router.push("/manager");
+      } else {
+        router.push("/employee/onboarding");
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unable to set password");
     } finally {
@@ -89,7 +96,7 @@ function InviteSetPasswordPageInner() {
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           <div>
             <label htmlFor="email" className="block mb-1 text-[14px] font-medium text-[#374151]">Work email</label>
-            <input id="email" type="email" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input id="email" type="email" required readOnly disabled className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-[#f9fafb] text-[#6b7280]" value={email} />
           </div>
           <div>
             <label htmlFor="password" className="block mb-1 text-[14px] font-medium text-[#374151]">Password</label>

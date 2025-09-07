@@ -10,6 +10,7 @@ export default function InviteEmployeePage() {
   const [departmentId, setDepartmentId] = useState("");
   const [roleId, setRoleId] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState<"Probationary" | "Part-time" | "Full-time">("Full-time");
+  const [orgRole, setOrgRole] = useState<"employee" | "manager" | "admin">("employee");
   const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
   const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -129,6 +130,7 @@ export default function InviteEmployeePage() {
         roleId,
         roleName: selectedRole?.name ?? null,
         employmentStatus,
+        orgRole,
         createdAt: serverTimestamp(),
       });
       // Send email and show status
@@ -178,6 +180,14 @@ export default function InviteEmployeePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="orgrole" className="block mb-1 text-[14px] font-medium text-[#374151]">Org Role</label>
+            <select id="orgrole" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={orgRole} onChange={(e) => setOrgRole(e.target.value as typeof orgRole)}>
+              <option value="employee">Employee</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
           <div>
             <label htmlFor="department" className="block mb-1 text-[14px] font-medium text-[#374151]">Department</label>
             <select id="department" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>

@@ -24,7 +24,7 @@ export default function LoginPage() {
           const snap = await getDocs(q);
           if (!snap.empty) {
             const role = (snap.docs[0].data() as { role?: string }).role;
-            router.replace(role === "admin" ? "/admin" : "/employee");
+            router.replace(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
           } else {
             router.replace("/employee");
           }
@@ -66,7 +66,7 @@ export default function LoginPage() {
                   const snap = await getDocs(q);
                   if (!snap.empty) {
                     const role = (snap.docs[0].data() as { role?: string }).role;
-                    router.push(role === "admin" ? "/admin" : "/employee");
+                    router.push(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
                   } else {
                     router.push("/employee");
                   }
