@@ -59,6 +59,17 @@ export default function EmployeeLeavePage() {
     e.preventDefault();
     setMessage("");
     if (!orgId || !auth.currentUser) return;
+    // Basic date validation
+    if (!fromDate || !toDate) {
+      setMessage("Please select both from and to dates.");
+      return;
+    }
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    if (to < from) {
+      setMessage("'To' date cannot be before 'From' date.");
+      return;
+    }
     setSaving(true);
     try {
       const col = collection(db, "organizations", orgId, "leaveRequests");
@@ -100,11 +111,29 @@ export default function EmployeeLeavePage() {
         </div>
         <div>
           <label className="block mb-1 text-[14px] font-medium text-[#374151]">From</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} required className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFromDate(v);
+              if (toDate && v && toDate < v) setToDate(v);
+            }}
+            required
+            min={new Date().toISOString().slice(0, 10)}
+            className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]"
+          />
         </div>
         <div>
           <label className="block mb-1 text-[14px] font-medium text-[#374151]">To</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} required className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            required
+            min={(fromDate || new Date().toISOString().slice(0, 10))}
+            className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]"
+          />
         </div>
         <div className="md:col-span-2">
           <label className="block mb-1 text-[14px] font-medium text-[#374151]">Reason (optional)</label>

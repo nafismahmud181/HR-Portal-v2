@@ -86,7 +86,7 @@ export default function AdminLeavePage() {
       <p className="mt-2 text-[14px] text-[#6b7280]">Review and approve employee leave.</p>
 
       {/* Calendar view */}
-      <CalendarView orgId={orgId} rows={rows} empById={empById} />
+      <CalendarView rows={rows} empById={empById} />
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white">
         <table className="hidden md:table w-full text-left">
@@ -152,7 +152,7 @@ export default function AdminLeavePage() {
   );
 }
 
-function CalendarView({ orgId, rows, empById }: { orgId: string | null; rows: AdminLeaveRow[]; empById: Record<string, string> }) {
+function CalendarView({ rows, empById }: { rows: AdminLeaveRow[]; empById: Record<string, string> }) {
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -160,7 +160,6 @@ function CalendarView({ orgId, rows, empById }: { orgId: string | null; rows: Ad
 
   const days = useMemo(() => {
     const [y, m] = month.split('-').map((n) => parseInt(n, 10));
-    const start = new Date(y, m - 1, 1);
     const end = new Date(y, m, 0);
     const list: Array<{ date: string; label: string }> = [];
     for (let d = 1; d <= end.getDate(); d++) {
