@@ -75,7 +75,8 @@ export default function AdminLeavePage() {
   }, []);
 
   async function setStatus(id: string, status: AdminLeaveRow["status"]) {
-    const ref = doc(db, "leaveRequests", id);
+    if (!orgId) return;
+    const ref = doc(db, "organizations", orgId, "leaveRequests", id);
     await updateDoc(ref, { status, reviewedAt: new Date().toISOString(), reviewedBy: auth.currentUser?.uid || null });
   }
 
