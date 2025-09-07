@@ -12,6 +12,7 @@ export default function AdminDashboardPage() {
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [empById, setEmpById] = useState<Record<string, string>>({});
   const [activities, setActivities] = useState<Array<{ what: string; whoId: string; when: string }>>([]);
+  const [leaveToday, setLeaveToday] = useState<Array<{ userId: string; type: string; fromDate: string; toDate: string }>>([]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -68,7 +69,25 @@ export default function AdminDashboardPage() {
         });
         setActivities(acts);
       });
-      return () => { offEmp(); offLeaves(); offRecent(); };
+
+      // Who is on leave today (approved)
+      const todayIso = new Date();
+      const today = `${todayIso.getFullYear()}-${String(todayIso.getMonth() + 1).padStart(2, '0')}-${String(todayIso.getDate()).padStart(2, '0')}`;
+      const offApproved = onSnapshot(leavesCol, (s) => {
+        const todayList: Array<{ userId: string; type: string; fromDate: string; toDate: string }> = [];
+        s.forEach((d) => {
+          const data = d.data() as Record<string, unknown> & { status?: string; fromDate?: string; toDate?: string; userId?: string; type?: string };
+          if ((data.status as string) !== 'approved') return;
+          const from = (data.fromDate as string) || '';
+          const to = (data.toDate as string) || '';
+          if (!from || !to) return;
+          if (from <= today && today <= to) {
+            todayList.push({ userId: (data.userId as string) || '', type: (data.type as string) || '', fromDate: from, toDate: to });
+          }
+        });
+        setLeaveToday(todayList);
+      });
+      return () => { offEmp(); offLeaves(); offRecent(); offApproved(); };
     });
     return () => unsub();
   }, []);
@@ -176,6 +195,21 @@ export default function AdminDashboardPage() {
             </ul>
           </section>
         </div>
+
+        {/* Who's on leave today */}
+        <section aria-label="On Leave Today" className="mt-10 rounded-lg border border-[#e5e7eb] bg-white">
+          <div className="p-5 border-b border-[#e5e7eb]"><h2 className="text-[18px] font-semibold">On Leave Today</h2></div>
+          <ul className="p-5 space-y-2">
+            {leaveToday.length === 0 ? (
+              <li className="text-[14px] text-[#6b7280]">No approved leaves today.</li>
+            ) : leaveToday.map((l, idx) => (
+              <li key={`${l.userId}-${idx}`} className="flex items-center justify-between">
+                <div className="text-[14px]">{empById[l.userId] || l.userId}</div>
+                <div className="text-[12px] text-[#6b7280]">{l.type} • {l.fromDate} → {l.toDate}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         {/* System Notifications */}
         <section aria-label="System Notifications" className="mt-10 rounded-lg border border-[#e5e7eb] bg-white">
