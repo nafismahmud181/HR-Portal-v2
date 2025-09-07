@@ -1,4 +1,67 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, collectionGroup, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+
+type PendingItem = { id: string; userId: string; name: string; type: string; fromDate: string; toDate: string; createdAt?: string };
+
 export default function AdminDashboardPage() {
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingItem[]>([]);
+  const [empById, setEmpById] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+      const cg = collectionGroup(db, "users");
+      const q = query(cg, where("uid", "==", user.uid));
+      const snap = await getDocs(q);
+      const parentOrg = snap.empty ? null : snap.docs[0].ref.parent.parent;
+      const foundOrgId = parentOrg ? parentOrg.id : null;
+      setOrgId(foundOrgId);
+      if (!foundOrgId) return;
+
+      // Employee names map
+      const empCol = collection(db, "organizations", foundOrgId, "employees");
+      const offEmp = onSnapshot(empCol, (s) => {
+        const map: Record<string, string> = {};
+        s.forEach((d) => { const data = d.data() as Record<string, unknown>; map[d.id] = (data["name"] as string) || d.id; });
+        setEmpById(map);
+      });
+
+      // Pending leave requests
+      const leavesCol = collection(db, "organizations", foundOrgId, "leaveRequests");
+      const qLeaves = query(leavesCol, where("status", "==", "pending"));
+      const offLeaves = onSnapshot(qLeaves, (s) => {
+        const list: PendingItem[] = [];
+        s.forEach((d) => {
+          const data = d.data() as Record<string, unknown>;
+          const ts = data["createdAt"] as { toDate?: () => Date } | undefined;
+          list.push({
+            id: d.id,
+            userId: (data["userId"] as string) || "",
+            name: "",
+            type: (data["type"] as string) || "",
+            fromDate: (data["fromDate"] as string) || "",
+            toDate: (data["toDate"] as string) || "",
+            createdAt: typeof ts?.toDate === "function" ? ts!.toDate()!.toLocaleString() : undefined,
+          });
+        });
+        setPending(list);
+      });
+      return () => { offEmp(); offLeaves(); };
+    });
+    return () => unsub();
+  }, []);
+
+  async function setStatus(id: string, status: "approved" | "rejected") {
+    if (!orgId) return;
+    const ref = doc(db, "organizations", orgId, "leaveRequests", id);
+    await updateDoc(ref, { status, reviewedAt: new Date().toISOString(), reviewedBy: auth.currentUser?.uid || null });
+  }
+
   return (
     <div className="min-h-screen px-6 py-16 bg-[#ffffff] text-[#1a1a1a]">
       <div className="max-w-[1200px] mx-auto">
@@ -81,19 +144,18 @@ export default function AdminDashboardPage() {
           <section aria-label="Pending Approvals" className="rounded-lg border border-[#e5e7eb] bg-white">
             <div className="p-5 border-b border[#e5e7eb]"><h2 className="text-[18px] font-semibold">Pending Approvals</h2></div>
             <ul className="p-5 space-y-4">
-              {[
-                { title: 'Leave request – Priya K.', meta: 'From Apr 15 to Apr 18' },
-                { title: 'Expense claim – John D.', meta: '$240 • Travel' },
-                { title: 'New role approval – Sales Associate', meta: 'Dept: Sales' },
-              ].map((p, idx) => (
-                <li key={idx} className="flex items-start justify-between gap-3">
+              {pending.length === 0 ? (
+                <li className="text-[14px] text-[#6b7280]">No pending items.</li>
+              ) : pending.map((p) => (
+                <li key={p.id} className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[14px] font-medium">{p.title}</p>
-                    <p className="text-[12px] text-[#6b7280]">{p.meta}</p>
+                    <p className="text-[14px] font-medium">Leave request – {empById[p.userId] || p.userId}</p>
+                    <p className="text-[12px] text-[#6b7280]">{p.type} • {p.fromDate} → {p.toDate}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-[12px] hover:bg-[#f9fafb]">View</button>
-                    <button className="rounded-md bg-[#1f2937] text-white px-3 py-1.5 text-[12px] hover:bg-[#111827]">Approve</button>
+                    <Link href="/admin/leave" className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-[12px] hover:bg-[#f9fafb]">View</Link>
+                    <button className="rounded-md bg-[#1f2937] text-white px-3 py-1.5 text-[12px] hover:bg-[#111827]" onClick={() => setStatus(p.id, 'approved')}>Approve</button>
+                    <button className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-[12px] hover:bg-[#f9fafb]" onClick={() => setStatus(p.id, 'rejected')}>Reject</button>
                   </div>
                 </li>
               ))}
