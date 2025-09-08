@@ -5,6 +5,8 @@ import {
   addDoc,
   collection,
   collectionGroup,
+  doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -35,6 +37,7 @@ type Role = {
 export default function SettingsPage() {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [loadingOrg, setLoadingOrg] = useState(true);
+  const [organization, setOrganization] = useState<Record<string, unknown> | null>(null);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -86,6 +89,16 @@ export default function SettingsPage() {
   // Subscribe to departments for this organization (nested under organizations/{orgId}/departments)
   useEffect(() => {
     if (!organizationId) return;
+    // Fetch organization details once
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "organizations", organizationId));
+        setOrganization(snap.exists() ? (snap.data() as Record<string, unknown>) : null);
+      } catch {
+        setOrganization(null);
+      }
+    })();
+
     const col = collection(db, "organizations", organizationId, "departments");
     const q = query(col);
     const unsub = onSnapshot(q, (snap) => {
@@ -222,8 +235,40 @@ export default function SettingsPage() {
         <div className="space-y-8">
           <section id="organization" className="rounded-lg border border-[#e5e7eb] bg-white">
             <div className="p-5 border-b border-[#e5e7eb]"><h2 className="text-[16px] font-semibold">Organization</h2></div>
-            <div className="p-5">
-              <p className="text-[13px] text-[#6b7280]">Organization profile, policies, and preferences.</p>
+            <div className="p-5 space-y-4">
+              {organization ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[14px]">
+                  <InfoRow label="Legal company name" value={(organization.legalName as string) || (organization.name as string) || "—"} />
+                  <InfoRow label="Industry" value={(organization.industry as string) || "—"} />
+                  <InfoRow label="Time zone" value={(organization.timeZone as string) || "—"} />
+                  <InfoRow label="Business registration / EIN" value={(organization.ein as string) || "—"} />
+                  <InfoRow label="Company size" value={(organization.size as string) || (organization.companySize as string) || ((organization.hrConfig as any)?.companySize as string) || "—"} />
+                  <InfoRow label="Currency" value={((organization.hrConfig as any)?.currency as string) || "—"} />
+                  <InfoRow label="Date format" value={((organization.hrConfig as any)?.dateFormat as string) || "—"} />
+                  <InfoRow label="Default work week" value={((organization.hrConfig as any)?.workWeek as string) || "—"} />
+                  <InfoRow label="Working hours" value={(() => {
+                    const wh = (organization.hrConfig as any)?.workingHours;
+                    if (!wh) return "—";
+                    if (typeof wh === "string") return wh;
+                    const s = wh.start ?? "";
+                    const e = wh.end ?? "";
+                    return wh.formatted || (s && e ? `${s} – ${e}` : "—");
+                  })()} />
+                  <div className="md:col-span-2">
+                    <div className="text-[13px] text-[#374151] font-medium">Address</div>
+                    <div className="mt-1 text-[14px] text-[#111827]">
+                      {(() => {
+                        const addr = organization.address as Record<string, string> | undefined;
+                        if (!addr) return "—";
+                        const parts = [addr.street, addr.city, addr.region, addr.postalCode, addr.country].filter(Boolean);
+                        return parts.length ? parts.join(", ") : (addr as any)?.formatted || "—";
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[13px] text-[#6b7280]">Organization profile, policies, and preferences.</p>
+              )}
             </div>
           </section>
 
@@ -397,6 +442,15 @@ export default function SettingsPage() {
           </section>
         </div>
       </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[13px] text-[#374151] font-medium">{label}</div>
+      <div className="mt-1 text-[14px] text-[#111827]">{value || "—"}</div>
     </div>
   );
 }

@@ -26,10 +26,10 @@ export default function LoginPage() {
             const role = (snap.docs[0].data() as { role?: string }).role;
             router.replace(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
           } else {
-            router.replace("/employee");
+            router.replace("/setup");
           }
         } catch {
-          router.replace("/employee");
+          router.replace("/setup");
         }
       } else {
         setCheckingAuth(false);
@@ -68,10 +68,10 @@ export default function LoginPage() {
                     const role = (snap.docs[0].data() as { role?: string }).role;
                     router.push(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
                   } else {
-                    router.push("/employee");
+                    router.push("/setup");
                   }
                 } catch {
-                  router.push("/employee");
+                  router.push("/setup");
                 }
               } catch (err: unknown) {
                 setError(err instanceof FirebaseError ? err.message : "Unable to sign in");

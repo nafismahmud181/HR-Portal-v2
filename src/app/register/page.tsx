@@ -9,8 +9,13 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 export default function RegisterPage() {
   const router = useRouter();
   const [company, setCompany] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [source, setSource] = useState("");
+  const [companySize, setCompanySize] = useState("");
+  const [adminRole, setAdminRole] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -31,6 +36,23 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
     try {
+      // Simple password strength: at least 8 chars with letters and numbers
+      const strong = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d!@#$%^&*()_+\-={}\[\]:;"'`~<>,.?/\\]{8,}$/;
+      if (!strong.test(password)) {
+        throw new Error("Password must be at least 8 characters and include letters and numbers.");
+      }
+      if (!companySize) {
+        throw new Error("Please select your company size.");
+      }
+      if (!adminRole) {
+        throw new Error("Please select your role.");
+      }
+      if (!fullName.trim()) {
+        throw new Error("Full name is required.");
+      }
+      if (!company.trim()) {
+        throw new Error("Company name is required.");
+      }
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
 
@@ -38,18 +60,29 @@ export default function RegisterPage() {
       const orgId = crypto.randomUUID();
       await setDoc(doc(db, "organizations", orgId), {
         name: company,
+        size: companySize,
         createdBy: uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      // Create initial admin membership
+      // Create initial admin membership (must match Firestore rules allowed keys)
       await setDoc(doc(db, "organizations", orgId, "users", uid), {
         uid,
         email,
         role: "admin",
         createdAt: serverTimestamp(),
       });
+
+      // Store extra admin profile details in top-level users/{uid} (owner-writable)
+      await setDoc(doc(db, "users", uid), {
+        fullName,
+        phone: phone || null,
+        source: source || null,
+        adminRole,
+        companySize,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
 
       router.push("/setup");
     } catch (err: unknown) {
@@ -66,29 +99,81 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 bg-[#ffffff] text-[#1a1a1a]">
-      <div className="w-full max-w-[480px]">
+      <div className="w-full max-w-[560px]">
         <Link href="/" className="inline-flex items-center gap-2">
           <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
           <span className="text-[16px] font-semibold">HRMSTech</span>
         </Link>
         <h1 className="mt-8 text-[24px] font-semibold">Create your company</h1>
-        <p className="mt-2 text-[14px] text-[#6b7280]">Start your 14‑day free trial. No credit card required.</p>
+        <p className="mt-2 text-[14px] text-[#6b7280]">Admin signup to set up your organization.</p>
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-5">
-          <div>
-            <label htmlFor="company" className="block mb-1 text-[14px] font-medium text-[#374151]">Company name</label>
-            <input id="company" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="Acme Inc." value={company} onChange={(e) => setCompany(e.target.value)} />
+        <form onSubmit={onSubmit} className="mt-8 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="email" className="block mb-1 text-[14px] font-medium text-[#374151]">Work email</label>
+              <input id="email" type="email" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="password" className="block mb-1 text-[14px] font-medium text-[#374151]">Password</label>
+              <input id="password" type="password" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <p className="mt-1 text-[12px] text-[#6b7280]">At least 8 characters, include letters and numbers.</p>
+            </div>
           </div>
-          <div>
-            <label htmlFor="email" className="block mb-1 text-[14px] font-medium text-[#374151]">Work email</label>
-            <input id="email" type="email" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="fullName" className="block mb-1 text-[14px] font-medium text-[#374151]">Full name</label>
+              <input id="fullName" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="Jane Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="company" className="block mb-1 text-[14px] font-medium text-[#374151]">Company name</label>
+              <input id="company" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="Acme Inc." value={company} onChange={(e) => setCompany(e.target.value)} />
+            </div>
           </div>
-          <div>
-            <label htmlFor="password" className="block mb-1 text-[14px] font-medium text-[#374151]">Password</label>
-            <input id="password" type="password" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <p className="mt-1 text-[12px] text-[#6b7280]">Use at least 8 characters.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="phone" className="block mb-1 text-[14px] font-medium text-[#374151]">Phone number (optional)</label>
+              <input id="phone" className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="+1 555 555 5555" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="source" className="block mb-1 text-[14px] font-medium text-[#374151]">How did you hear about us? (optional)</label>
+              <select id="source" className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={source} onChange={(e) => setSource(e.target.value)}>
+                <option value="">Select</option>
+                <option value="search">Search engine</option>
+                <option value="friend">Friend / colleague</option>
+                <option value="social">Social media</option>
+                <option value="ad">Advertisement</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
-          <button type="submit" disabled={loading} className="w-full rounded-md bg-[#1f2937] text-white px-4 py-3 text-[16px] font-medium hover:bg-[#111827] disabled:opacity-60">{loading ? "Creating…" : "Create company"}</button>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="size" className="block mb-1 text-[14px] font-medium text-[#374151]">Company size</label>
+              <select id="size" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={companySize} onChange={(e) => setCompanySize(e.target.value)}>
+                <option value="">Select size</option>
+                <option value="1-10">1-10 employees</option>
+                <option value="11-50">11-50 employees</option>
+                <option value="51-200">51-200 employees</option>
+                <option value="201-500">201-500 employees</option>
+                <option value="500+">500+ employees</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="role" className="block mb-1 text-[14px] font-medium text-[#374151]">Your role</label>
+              <select id="role" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={adminRole} onChange={(e) => setAdminRole(e.target.value)}>
+                <option value="">Select role</option>
+                <option value="HR Manager">HR Manager</option>
+                <option value="CEO/Founder">CEO/Founder</option>
+                <option value="Operations Manager">Operations Manager</option>
+                <option value="People Operations">People Operations</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full rounded-md bg-[#1f2937] text-white px-4 py-3 text-[16px] font-medium hover:bg-[#111827] disabled:opacity-60">{loading ? "Creating…" : "Signup as admin"}</button>
           {error ? <p className="text-[14px] text-[#ef4444]">{error}</p> : null}
           <p className="text-[14px] text-[#6b7280] text-center">Already have an account? <Link href="/login" className="text-[#f97316]">Log in</Link></p>
         </form>
