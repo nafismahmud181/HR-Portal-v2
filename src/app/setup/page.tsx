@@ -7,7 +7,7 @@ import { collection, collectionGroup, doc, getDoc, getDocs, limit, query, server
 
 export default function SetupPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,6 +30,11 @@ export default function SetupPage() {
   const [endTime, setEndTime] = useState("");
   const [currency, setCurrency] = useState("");
   const [dateFormat, setDateFormat] = useState("");
+
+  // Step 3 fields (Quick Policy Setup)
+  const [annualLeaveEntitlement, setAnnualLeaveEntitlement] = useState<string>("");
+  const [probationPeriod, setProbationPeriod] = useState("");
+  const [noticePeriod, setNoticePeriod] = useState("");
 
   useEffect(() => {
     async function resolveOrg() {
@@ -81,7 +86,7 @@ export default function SetupPage() {
     );
   }, [legalName, industry, street, city, region, postalCode, country, timeZone]);
 
-  const canSubmit = useMemo(() => {
+  const canContinueStep2 = useMemo(() => {
     return (
       canContinueStep1 &&
       workWeek.trim().length > 0 &&
@@ -91,6 +96,11 @@ export default function SetupPage() {
       dateFormat.trim().length > 0
     );
   }, [canContinueStep1, workWeek, startTime, endTime, currency, dateFormat]);
+
+  const canSubmit = useMemo(() => {
+    const leaveOk = Number.isFinite(parseFloat(annualLeaveEntitlement)) && parseFloat(annualLeaveEntitlement) > 0;
+    return canContinueStep2 && leaveOk && probationPeriod.trim().length > 0 && noticePeriod.trim().length > 0;
+  }, [canContinueStep2, annualLeaveEntitlement, probationPeriod, noticePeriod]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -172,6 +182,11 @@ export default function SetupPage() {
             currency,
             dateFormat,
           },
+          hrPolicies: {
+            annualLeaveEntitlement: parseFloat(annualLeaveEntitlement),
+            probationPeriod,
+            noticePeriod,
+          },
           setupCompleted: true,
           updatedAt: serverTimestamp(),
         },
@@ -200,6 +215,9 @@ export default function SetupPage() {
           <span className="mx-2 text-[#d1d5db]">—</span>
           <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full border ${step === 2 ? "bg-[#1f2937] text-white border-[#1f2937]" : "border-[#d1d5db] text-[#374151]"}`}>2</span>
           <span>Basic HR Configuration</span>
+          <span className="mx-2 text-[#d1d5db]">—</span>
+          <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full border ${step === 3 ? "bg-[#1f2937] text-white border-[#1f2937]" : "border-[#d1d5db] text-[#374151]"}`}>3</span>
+          <span>Quick Policy Setup</span>
         </div>
 
         {error ? <p className="mt-4 text-[14px] text-[#ef4444]">{error}</p> : null}
@@ -270,8 +288,8 @@ export default function SetupPage() {
               <button disabled={!canContinueStep1} className="inline-flex items-center rounded-md bg-[#1f2937] text-white px-6 py-3 text-[16px] font-medium disabled:opacity-50 hover:bg-[#111827]">Continue</button>
             </div>
           </form>
-        ) : (
-          <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+        ) : step === 2 ? (
+          <form className="mt-6 space-y-5" onSubmit={(e) => { e.preventDefault(); if (canContinueStep2) setStep(3); }}>
             <div>
               <label className="block mb-1 text-[14px] font-medium text-[#374151]">Default work week</label>
               <select className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={workWeek} onChange={(e) => setWorkWeek(e.target.value)} required>
@@ -323,9 +341,41 @@ export default function SetupPage() {
             </div>
             <div className="flex items-center justify-between">
               <button type="button" className="inline-flex items-center rounded-md border border-[#d1d5db] px-6 py-3 text-[16px] text-[#374151] hover:bg-[#f9fafb]" onClick={() => setStep(1)}>Back</button>
-              <button type="submit" disabled={!canSubmit || saving} className="inline-flex items-center rounded-md bg-[#1f2937] text-white px-6 py-3 text-[16px] font-medium disabled:opacity-50 hover:bg-[#111827]">
-                {saving ? "Saving…" : "Finish setup"}
-              </button>
+              <button type="submit" disabled={!canContinueStep2} className="inline-flex items-center rounded-md bg-[#1f2937] text-white px-6 py-3 text-[16px] font-medium disabled:opacity-50 hover:bg-[#111827]">Continue</button>
+            </div>
+          </form>
+        ) : (
+          <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+            <div>
+              <label className="block mb-1 text-[14px] font-medium text-[#374151]">Annual leave entitlement</label>
+              <input type="number" min="1" step="1" className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="e.g., 20" value={annualLeaveEntitlement} onChange={(e) => setAnnualLeaveEntitlement(e.target.value)} required />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Probation period duration</label>
+                <select className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={probationPeriod} onChange={(e) => setProbationPeriod(e.target.value)} required>
+                  <option value="">Select</option>
+                  <option value="1 month">1 month</option>
+                  <option value="3 months">3 months</option>
+                  <option value="6 months">6 months</option>
+                  <option value="9 months">9 months</option>
+                  <option value="12 months">12 months</option>
+                </select>
+              </div>
+              <div>
+                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Notice period for employees</label>
+                <select className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={noticePeriod} onChange={(e) => setNoticePeriod(e.target.value)} required>
+                  <option value="">Select</option>
+                  <option value="1 week">1 week</option>
+                  <option value="2 weeks">2 weeks</option>
+                  <option value="1 month">1 month</option>
+                  <option value="2 months">2 months</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <button type="button" className="inline-flex items-center rounded-md border border-[#d1d5db] px-6 py-3 text-[16px] text-[#374151] hover:bg-[#f9fafb]" onClick={() => setStep(2)}>Back</button>
+              <button type="submit" disabled={!canSubmit || saving} className="inline-flex items-center rounded-md bg-[#1f2937] text-white px-6 py-3 text-[16px] font-medium disabled:opacity-50 hover:bg-[#111827]">{saving ? "Saving…" : "Finish setup"}</button>
             </div>
           </form>
         )}

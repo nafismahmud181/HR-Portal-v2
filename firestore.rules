@@ -74,7 +74,11 @@ service cloud.firestore {
               userId == request.auth.uid
             )
           ) && userId == request.resource.data.uid
-          && request.resource.data.keys().hasOnly(['uid','role','email','createdAt']);
+          && request.resource.data.keys().hasOnly([
+            'uid','role','email','createdAt',
+            // Optional profile fields for admin/member docs
+            'name','phone','source','adminRole','companySize','updatedAt'
+          ]);
       }
 
       // Invites subcollection

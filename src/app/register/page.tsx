@@ -66,23 +66,19 @@ export default function RegisterPage() {
         updatedAt: serverTimestamp(),
       });
 
-      // Create initial admin membership (must match Firestore rules allowed keys)
+      // Create initial admin membership and include profile fields directly on membership
       await setDoc(doc(db, "organizations", orgId, "users", uid), {
         uid,
         email,
         role: "admin",
-        createdAt: serverTimestamp(),
-      });
-
-      // Store extra admin profile details in top-level users/{uid} (owner-writable)
-      await setDoc(doc(db, "users", uid), {
-        fullName,
+        name: fullName,
         phone: phone || null,
         source: source || null,
         adminRole,
         companySize,
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      }, { merge: true });
+      });
 
       router.push("/setup");
     } catch (err: unknown) {
