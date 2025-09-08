@@ -22,11 +22,8 @@ export default function RegisterPage() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        router.replace("/admin");
-      } else {
-        setCheckingAuth(false);
-      }
+      // Avoid redirecting away from /register to prevent race with signup flow
+      setCheckingAuth(false);
     });
     return () => unsub();
   }, [router]);
@@ -87,7 +84,7 @@ export default function RegisterPage() {
         // ignore if not exists/permission denied
       }
 
-      router.push("/setup");
+      router.replace("/setup");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unable to register";
       setError(message);
