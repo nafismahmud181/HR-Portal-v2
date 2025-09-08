@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -79,6 +79,13 @@ export default function RegisterPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Cleanup: remove any legacy top-level user doc if it exists
+      try {
+        await deleteDoc(doc(db, "users", uid));
+      } catch {
+        // ignore if not exists/permission denied
+      }
 
       router.push("/setup");
     } catch (err: unknown) {
