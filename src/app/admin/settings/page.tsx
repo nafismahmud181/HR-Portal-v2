@@ -34,6 +34,21 @@ type Role = {
   createdAt?: unknown;
 };
 
+type WorkingHours = { start?: string; end?: string; formatted?: string };
+type HrConfig = { currency?: string; dateFormat?: string; workWeek?: string; workingHours?: WorkingHours; companySize?: string };
+type OrgAddress = { street?: string; city?: string; region?: string; postalCode?: string; country?: string; formatted?: string };
+type OrganizationDoc = {
+  legalName?: string;
+  name?: string;
+  industry?: string;
+  timeZone?: string;
+  ein?: string | null;
+  size?: string;
+  companySize?: string;
+  hrConfig?: HrConfig;
+  address?: OrgAddress;
+};
+
 export default function SettingsPage() {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [loadingOrg, setLoadingOrg] = useState(true);
@@ -238,18 +253,26 @@ export default function SettingsPage() {
             <div className="p-5 space-y-4">
               {organization ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[14px]">
-                  <InfoRow label="Legal company name" value={(organization.legalName as string) || (organization.name as string) || "—"} />
-                  <InfoRow label="Industry" value={(organization.industry as string) || "—"} />
-                  <InfoRow label="Time zone" value={(organization.timeZone as string) || "—"} />
-                  <InfoRow label="Business registration / EIN" value={(organization.ein as string) || "—"} />
-                  <InfoRow label="Company size" value={(organization.size as string) || (organization.companySize as string) || ((organization.hrConfig as any)?.companySize as string) || "—"} />
-                  <InfoRow label="Currency" value={((organization.hrConfig as any)?.currency as string) || "—"} />
-                  <InfoRow label="Date format" value={((organization.hrConfig as any)?.dateFormat as string) || "—"} />
-                  <InfoRow label="Default work week" value={((organization.hrConfig as any)?.workWeek as string) || "—"} />
+                  {(() => {
+                    const org = organization as OrganizationDoc;
+                    const cfg = org.hrConfig;
+                    return (
+                      <>
+                        <InfoRow label="Legal company name" value={org.legalName || org.name || "—"} />
+                        <InfoRow label="Industry" value={org.industry || "—"} />
+                        <InfoRow label="Time zone" value={org.timeZone || "—"} />
+                        <InfoRow label="Business registration / EIN" value={org.ein || "—"} />
+                        <InfoRow label="Company size" value={org.size || org.companySize || cfg?.companySize || "—"} />
+                        <InfoRow label="Currency" value={cfg?.currency || "—"} />
+                        <InfoRow label="Date format" value={cfg?.dateFormat || "—"} />
+                        <InfoRow label="Default work week" value={cfg?.workWeek || "—"} />
+                      </>
+                    );
+                  })()}
                   <InfoRow label="Working hours" value={(() => {
-                    const wh = (organization.hrConfig as any)?.workingHours;
+                    const cfg = (organization as OrganizationDoc).hrConfig;
+                    const wh = cfg?.workingHours;
                     if (!wh) return "—";
-                    if (typeof wh === "string") return wh;
                     const s = wh.start ?? "";
                     const e = wh.end ?? "";
                     return wh.formatted || (s && e ? `${s} – ${e}` : "—");
@@ -258,10 +281,10 @@ export default function SettingsPage() {
                     <div className="text-[13px] text-[#374151] font-medium">Address</div>
                     <div className="mt-1 text-[14px] text-[#111827]">
                       {(() => {
-                        const addr = organization.address as Record<string, string> | undefined;
+                        const addr = (organization as OrganizationDoc).address;
                         if (!addr) return "—";
-                        const parts = [addr.street, addr.city, addr.region, addr.postalCode, addr.country].filter(Boolean);
-                        return parts.length ? parts.join(", ") : (addr as any)?.formatted || "—";
+                        const parts = [addr.street, addr.city, addr.region, addr.postalCode, addr.country].filter(Boolean) as string[];
+                        return parts.length ? parts.join(", ") : addr.formatted || "—";
                       })()}
                     </div>
                   </div>

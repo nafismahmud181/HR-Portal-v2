@@ -71,7 +71,7 @@ export default function SetupPage() {
       }
     }
     resolveOrg();
-  }, []);
+  }, [router, legalName]);
 
   const canContinueStep1 = useMemo(() => {
     return (
@@ -315,7 +315,7 @@ export default function SetupPage() {
                   ))}
                 </select>
               </div>
-              <p className="mt-1 text-[12px] text-[#6b7280]">Select your team's typical day start and end.</p>
+              <p className="mt-1 text-[12px] text-[#6b7280]">Select your team&#39;s typical day start and end.</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
