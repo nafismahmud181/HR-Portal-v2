@@ -19,16 +19,21 @@ export default function LoginPage() {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          // First try to find user in any organization
           const cg = collectionGroup(db, "users");
           const q = query(cg, where("uid", "==", user.uid));
           const snap = await getDocs(q);
           if (!snap.empty) {
-            const role = (snap.docs[0].data() as { role?: string }).role;
+            const userData = snap.docs[0].data() as { role?: string };
+            const role = userData.role;
+            console.log("Found user with role:", role);
             router.replace(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
           } else {
+            console.log("No user document found, redirecting to setup");
             router.replace("/setup");
           }
-        } catch {
+        } catch (error) {
+          console.error("Error checking user role:", error);
           router.replace("/setup");
         }
       } else {
@@ -61,16 +66,21 @@ export default function LoginPage() {
               try {
                 const cred = await signInWithEmailAndPassword(auth, email, password);
                 try {
+                  console.log("Signed in user:", cred.user.uid);
                   const cg = collectionGroup(db, "users");
                   const q = query(cg, where("uid", "==", cred.user.uid));
                   const snap = await getDocs(q);
                   if (!snap.empty) {
-                    const role = (snap.docs[0].data() as { role?: string }).role;
+                    const userData = snap.docs[0].data() as { role?: string };
+                    const role = userData.role;
+                    console.log("Login: Found user with role:", role);
                     router.push(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
                   } else {
+                    console.log("Login: No user document found, redirecting to setup");
                     router.push("/setup");
                   }
-                } catch {
+                } catch (error) {
+                  console.error("Login: Error checking user role:", error);
                   router.push("/setup");
                 }
               } catch (err: unknown) {

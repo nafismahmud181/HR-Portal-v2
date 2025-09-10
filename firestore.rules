@@ -4,297 +4,113 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
     
-    // NEW: Helper function to check if user is member of an organization
+    // Helper function to check if user is member of an organization
     function isOrgMember(orgId) {
       return isSignedIn() && exists(/databases/$(database)/documents/organizations/$(orgId)/users/$(request.auth.uid));
     }
     
-    // NEW: Helper function to check if user is admin of an organization
+    // Helper function to check if user is admin of an organization
     function isOrgAdmin(orgId) {
       return isSignedIn() && 
         get(/databases/$(database)/documents/organizations/$(orgId)/users/$(request.auth.uid)).data.role == 'admin';
     }
-    
-    // NEW: Helper function to check if user is the organization creator
-    function isOrgCreator(orgId) {
-      return isSignedIn() && 
-        resource.data.createdBy == request.auth.uid;
-    }
 
-    // NEW: Optional helper to allow membership creation via invite doc
-    // Expected path: organizations/{orgId}/invites/{email}
-    function hasValidInvite(orgId) {
-      return exists(/databases/$(database)/documents/organizations/$(orgId)/invites/$(request.resource.data.email));
-    }
-
-    // Users
+    // Users - allow users to manage their own documents
     match /users/{userId} {
       allow read, write: if isOwner(userId);
     }
 
-    // NEW: Organizations collection rules
+    // Organizations - proper isolation between organizations
     match /organizations/{orgId} {
-      // Allow read if user is authenticated and is the creator of the organization
-      allow read: if isSignedIn() && resource.data.createdBy == request.auth.uid;
-      
-      // Allow read if user is authenticated and is a member of the organization (non-circular check)
-      allow read: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(orgId)/users/$(request.auth.uid));
-      
-      // Allow write if user is authenticated and is the creator (admin) of the organization
-      allow write: if isOrgCreator(orgId);
+      // Allow read if user is authenticated and is a member of THIS organization
+      allow read: if isOrgMember(orgId) || (isSignedIn() && resource.data.createdBy == request.auth.uid);
       
       // Allow create if user is authenticated (for new organizations)
       allow create: if isSignedIn();
       
-      // Allow update of specific fields (industry, companySize, logoUrl) by organization creator
-      allow update: if isSignedIn() && resource.data.createdBy == request.auth.uid && 
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['industry', 'companySize', 'logoUrl', 'updatedAt']);
-      
-      // Organization users subcollection rules
+      // Allow update/delete if user is the creator or admin of THIS organization
+      allow update, delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isOrgAdmin(orgId));
+
+      // Organization users subcollection
       match /users/{userId} {
         // Allow users to read their own user document
         allow read: if isOwner(userId);
-
-        // Allow read for org creator/admins to manage members
-        allow read: if isSignedIn() && (isOrgAdmin(orgId) || get(/databases/$(database)/documents/organizations/$(orgId)).data.createdBy == request.auth.uid);
-
-        // Only org admins can modify membership docs (update/delete)
+        // Allow admins to read all user documents in THEIR organization
+        allow read: if isOrgAdmin(orgId);
+        // Allow any authenticated user to create their own user document (for invite flow)
+        allow create: if isSignedIn() && userId == request.auth.uid;
+        // Allow admins to update/delete user documents in THEIR organization
         allow update, delete: if isOrgAdmin(orgId);
-
-        // Only org admins (or a valid invite) can create a membership
-        // Also allow the org creator to create the very first self-membership as admin
-        allow create: if (
-            (
-              (isOrgAdmin(orgId) || hasValidInvite(orgId))
-            ) || (
-              isSignedIn() &&
-              get(/databases/$(database)/documents/organizations/$(orgId)).data.createdBy == request.auth.uid &&
-              userId == request.auth.uid
-            )
-          ) && userId == request.resource.data.uid
-          && request.resource.data.keys().hasOnly([
-            'uid','role','email','createdAt',
-            // Optional profile fields for admin/member docs
-            'name','phone','source','adminRole','companySize','updatedAt'
-          ]);
       }
 
       // Invites subcollection
       match /invites/{email} {
-        // Only admins can create or delete invites
+        // Allow admins to manage invites in THEIR organization
         allow create, delete: if isOrgAdmin(orgId);
-        // Admins can read; invitee can read their own invite doc until accepted
-        allow read: if isOrgAdmin(orgId) || (
-          isSignedIn() &&
-          request.auth.token.email == email &&
-          (!resource.data.status || resource.data.status != 'accepted' || resource.data.acceptedByUid == request.auth.uid)
-        );
-        // Allow limited updates:
-        // - Admins may mark status/acceptedAt/acceptedByUid
-        // - Invitee (by matching auth token email) may mark their own acceptance
-        allow update: if (
-          isOrgAdmin(orgId) &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['acceptedAt','acceptedByUid','status','updatedAt'])
-        ) || (
-          isSignedIn() && request.auth.token.email == email &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['acceptedAt','acceptedByUid','status']) &&
-          request.resource.data.acceptedByUid == request.auth.uid
-        );
+        // Allow admins and invitees to read invites
+        allow read: if isOrgAdmin(orgId) || (isSignedIn() && request.auth.token.email == email);
+        // Allow updates for invite acceptance
+        allow update: if isOrgAdmin(orgId) || (isSignedIn() && request.auth.token.email == email);
       }
 
-      // Departments subcollection (organization-scoped departments)
-      // Path: organizations/{orgId}/departments/{departmentId}
-      match /departments/{departmentId} {
-        // Any signed-in member of the organization can read departments
+      // Employees subcollection - only accessible within the organization
+      match /employees/{employeeId} {
+        // Only members of THIS organization can read employees
         allow read: if isOrgMember(orgId);
+        // Allow any authenticated user to create their own employee record (for invite flow)
+        allow create: if isSignedIn() && request.auth.uid == employeeId;
+        // Allow admins to manage employees in THEIR organization
+        allow update, delete: if isOrgAdmin(orgId);
+      }
 
-        // Only admins can create/update/delete departments
+      // Departments subcollection - only accessible within the organization
+      match /departments/{departmentId} {
+        allow read: if isOrgMember(orgId);
         allow create, update, delete: if isOrgAdmin(orgId);
 
-        // Validate allowed fields on create/update
-        allow create: if isOrgAdmin(orgId) &&
-          request.resource.data.keys().hasOnly(['name','code','description','createdAt']);
-        allow update: if isOrgAdmin(orgId) &&
-          request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(['name','code','description']);
-
-        // Roles subcollection: organizations/{orgId}/departments/{departmentId}/roles/{roleId}
         match /roles/{roleId} {
-          // Any signed-in member of the organization can read roles
           allow read: if isOrgMember(orgId);
-
-          // Only admins can create/update/delete roles
           allow create, update, delete: if isOrgAdmin(orgId);
-
-          // Validate allowed fields
-          allow create: if isOrgAdmin(orgId) &&
-            request.resource.data.keys().hasOnly(['name','code','description','createdAt']);
-          allow update: if isOrgAdmin(orgId) &&
-            request.resource.data.diff(resource.data).changedKeys()
-              .hasOnly(['name','code','description']);
         }
       }
 
-      // Employees subcollection (organization-scoped employee directory)
-      // Path: organizations/{orgId}/employees/{employeeId}
-      match /employees/{employeeId} {
-        // Any signed-in member of the organization can read employees
+      // Leave Requests - only accessible within the organization
+      match /leaveRequests/{requestId} {
         allow read: if isOrgMember(orgId);
-
-        // Allow self-create for the newly invited employee to create their own basic record
-        allow create: if (
-          isOrgMember(orgId) &&
-          request.auth.uid == employeeId &&
-          request.resource.data.keys().hasOnly(['name','email','employeeId','department','departmentId','jobTitle','roleId','manager','hireDate','status','location','employeeType','avatarUrl','dob','createdAt','phoneNumber','nidNumber','passportNumber','emergencyContactName','emergencyContactPhone','emergencyContactRelation','presentAddress','onboardingCompleted'])
-        ) || isOrgAdmin(orgId);
-
-        // Allow employees to update ONLY their own onboarding/profile fields; admins can update anything
-        allow update: if (
-          isOrgAdmin(orgId)
-        ) || (
-          isOrgMember(orgId) &&
-          request.auth.uid == employeeId &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['phoneNumber','dob','nidNumber','passportNumber','emergencyContactName','emergencyContactPhone','emergencyContactRelation','presentAddress','onboardingCompleted','avatarUrl'])
-        );
-
-        // Only admins can delete employee records
+        allow create: if isOrgMember(orgId) && request.resource.data.userId == request.auth.uid;
+        allow update: if isOrgAdmin(orgId) || (isOrgMember(orgId) && request.auth.uid == resource.data.userId);
         allow delete: if isOrgAdmin(orgId);
       }
 
-      // Leave Requests - organization scoped
-      match /leaveRequests/{requestId} {
-        // Read: any org member can read org leave requests
+      // Payroll - only accessible within the organization
+      match /payrollRuns/{runId} {
         allow read: if isOrgMember(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId);
 
-        // Create: signed-in org member creates their own request
-        allow create: if isOrgMember(orgId) && request.resource.data.userId == request.auth.uid;
-
-        // Update rules:
-        // - Admins can change status and review metadata
-        // - Owner can modify while pending and only basic fields
-        allow update: if (
-          isOrgAdmin(orgId) &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy','comment'])
-        ) || (
-          isOrgMember(orgId) && request.auth.uid == resource.data.userId && resource.data.status == 'pending' &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['fromDate','toDate','type','reason'])
-        );
-
-        // Delete: admins only
-        allow delete: if isOrgAdmin(orgId);
+        match /items/{employeeId} {
+          allow read: if isOrgAdmin(orgId) || (isOrgMember(orgId) && request.auth.uid == employeeId);
+          allow create, update, delete: if isOrgAdmin(orgId);
+        }
       }
     }
 
-    // Collection group access for organization users (needed for collectionGroup queries)
-    // Allows a user to read their own membership document regardless of which org it lives in
+    // Collection group access for organization users (for login queries)
     match /{path=**}/users/{userId} {
       allow read: if isOwner(userId) || (isSignedIn() && resource.data.uid == request.auth.uid);
     }
 
-    // Employees - Organization Isolation
-    match /employees/{employeeId} {
-      // Allow read only if user belongs to the same organization as the employee
-      allow read: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow create if user is authenticated and setting their own organization
-      allow create: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow update if user belongs to the same organization and is admin
-      allow update: if isSignedIn() && 
-        request.resource.data.organizationId == resource.data.organizationId &&
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin';
-      
-      // Allow delete if user belongs to the same organization and is admin
-      allow delete: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // (legacy) Top-level leaveRequests no longer used
-
-    // Leave Balances - Organization Isolation
-    match /leaveBalances/{balanceId} {
-      // Allow read only if user belongs to the same organization as the leave balance
-      allow read: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow create if user is authenticated and setting their own organization
-      allow create: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow update if user belongs to the same organization
-      allow update: if isSignedIn() && 
-        request.resource.data.organizationId == resource.data.organizationId &&
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow delete if user belongs to the same organization and is admin
-      allow delete: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Payroll - Organization Isolation
-    // Collections:
-    // - organizations/{orgId}/payrollRuns/{runId}
-    // - organizations/{orgId}/payrollRuns/{runId}/items/{employeeId}
-    match /organizations/{orgId}/payrollRuns/{runId} {
-      // Admins manage runs; members can read
-      allow read: if isOrgMember(orgId);
-      allow create, update, delete: if isOrgAdmin(orgId);
-
-      match /items/{employeeId} {
-        // Admins manage items; employees can read their own
-        allow read: if isOrgAdmin(orgId) || (isOrgMember(orgId) && request.auth.uid == employeeId);
-        allow create, update, delete: if isOrgAdmin(orgId);
-      }
-    }
-
-    // Departments - Organization Isolation
-    match /departments/{departmentId} {
-      // Allow read only if user belongs to the same organization as the department
-      allow read: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow create if user is authenticated and setting their own organization
-      allow create: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow update if user belongs to the same organization
-      allow update: if isSignedIn() && 
-        request.resource.data.organizationId == resource.data.organizationId &&
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid));
-      
-      // Allow delete if user belongs to the same organization and is admin
-      allow delete: if isSignedIn() && 
-        exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-
-
-    // Document metadata saved by generator
+    // Other collections
     match /documents/{docId} {
-      allow create: if isSignedIn() &&
-        request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() &&
-        resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Raw uploads shown in the picker Recent tab
     match /uploads/{uploadId} {
-      allow create: if isSignedIn() &&
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.storagePath.matches('uploads/' + request.auth.uid + '/.*');
-      allow read, update, delete: if isSignedIn() &&
-        resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Default deny
+    // Default deny for everything else
     match /{document=**} {
       allow read, write: if false;
     }

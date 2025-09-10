@@ -26,21 +26,43 @@ function InviteSetPasswordPageInner() {
     setLoading(true);
     try {
       if (!presetOrg) throw new Error("Missing orgId in invite link");
+      
+      console.log("Creating user account...");
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
+      console.log("User created with UID:", uid);
+      
+      // Wait a moment for auth token to propagate
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Verify invite now that the user is signed in (rules allow invitee to read)
       const normalized = email.trim().toLowerCase();
       const inviteRef = doc(db, "organizations", presetOrg, "invites", normalized);
+      console.log("Reading invite document for email:", normalized);
+      console.log("Auth token email:", cred.user.email);
       const inviteSnap = await getDoc(inviteRef);
-      if (!inviteSnap.exists()) throw new Error("Invite not found or expired");
+      if (!inviteSnap.exists()) {
+        console.error("Invite document not found. Expected path:", `organizations/${presetOrg}/invites/${normalized}`);
+        throw new Error("Invite not found or expired");
+      }
 
       const inviteData = inviteSnap.data() as { orgRole?: "employee" | "manager" | "admin" } | undefined;
-      await setDoc(doc(db, "organizations", presetOrg, "users", uid), {
-        uid,
-        email: normalized,
-        role: inviteData?.orgRole || "employee",
-        createdAt: serverTimestamp(),
-      });
+      console.log("Invite data:", inviteData);
+      
+      // Create user membership in organization
+      console.log("Creating user membership...");
+      try {
+        await setDoc(doc(db, "organizations", presetOrg, "users", uid), {
+          uid,
+          email: normalized,
+          role: inviteData?.orgRole || "employee",
+          createdAt: serverTimestamp(),
+        });
+        console.log("User membership created successfully");
+      } catch (userErr) {
+        console.error("Error creating user membership:", userErr);
+        throw new Error(`Failed to create user membership: ${userErr instanceof Error ? userErr.message : 'Unknown error'}`);
+      }
 
       // Create employee profile in org directory
       const invite = inviteSnap.data() as {
@@ -51,35 +73,54 @@ function InviteSetPasswordPageInner() {
         roleName?: string;
         employmentStatus?: string;
       };
-      await setDoc(doc(db, "organizations", presetOrg, "employees", uid), {
-        employeeId: uid,
-        name: invite?.name || normalized.split("@")[0],
-        email: normalized,
-        departmentId: invite?.departmentId || "",
-        department: invite?.departmentName || "",
-        roleId: invite?.roleId || "",
-        jobTitle: invite?.roleName || "",
-        manager: "",
-        hireDate: serverTimestamp(),
-        status: "Active",
-        location: "",
-        employeeType: invite?.employmentStatus || "Full-time",
-        createdAt: serverTimestamp(),
-      });
+      console.log("Creating employee profile...");
+      try {
+        await setDoc(doc(db, "organizations", presetOrg, "employees", uid), {
+          employeeId: uid,
+          name: invite?.name || normalized.split("@")[0],
+          email: normalized,
+          departmentId: invite?.departmentId || "",
+          department: invite?.departmentName || "",
+          roleId: invite?.roleId || "",
+          jobTitle: invite?.roleName || "",
+          manager: "",
+          hireDate: serverTimestamp(),
+          status: "Active",
+          location: "",
+          employeeType: invite?.employmentStatus || "Full-time",
+          createdAt: serverTimestamp(),
+        });
+        console.log("Employee profile created successfully");
+      } catch (empErr) {
+        console.error("Error creating employee profile:", empErr);
+        throw new Error(`Failed to create employee profile: ${empErr instanceof Error ? empErr.message : 'Unknown error'}`);
+      }
 
       // Mark invite accepted
+      console.log("Marking invite as accepted...");
       try {
         await setDoc(inviteRef, { acceptedAt: serverTimestamp(), acceptedByUid: uid, status: "accepted" }, { merge: true });
-      } catch {}
+        console.log("Invite marked as accepted");
+      } catch (inviteErr) {
+        console.warn("Failed to mark invite as accepted:", inviteErr);
+      }
+      
       // Redirect based on role
-      if ((inviteData?.orgRole || "employee") === "admin") {
+      const userRole = inviteData?.orgRole || "employee";
+      console.log("Redirecting user with role:", userRole);
+      
+      if (userRole === "admin") {
+        console.log("Redirecting to /admin");
         router.push("/admin");
-      } else if ((inviteData?.orgRole || "employee") === "manager") {
+      } else if (userRole === "manager") {
+        console.log("Redirecting to /manager");
         router.push("/manager");
       } else {
+        console.log("Redirecting to /employee/onboarding");
         router.push("/employee/onboarding");
       }
     } catch (err: unknown) {
+      console.error("Invite flow error:", err);
       setError(err instanceof Error ? err.message : "Unable to set password");
     } finally {
       setLoading(false);
