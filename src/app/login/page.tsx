@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { collectionGroup, getDocs, query, where } from "firebase/firestore";
-import { FirebaseError } from "firebase/app";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -84,7 +84,7 @@ export default function LoginPage() {
                   router.push("/setup");
                 }
               } catch (err: unknown) {
-                setError(err instanceof FirebaseError ? err.message : "Unable to sign in");
+                setError(getAuthErrorMessage(err));
               } finally {
                 setLoading(false);
               }

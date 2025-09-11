@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -86,8 +87,7 @@ export default function RegisterPage() {
 
       router.replace("/setup");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unable to register";
-      setError(message);
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }

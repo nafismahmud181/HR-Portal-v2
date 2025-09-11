@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { verifyPasswordResetCode, confirmPasswordReset } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 function ResetPasswordPageInner() {
   const params = useSearchParams();
@@ -28,7 +29,7 @@ function ResetPasswordPageInner() {
         setStatus("ready");
       } catch (err: unknown) {
         setStatus("error");
-        setMessage(err instanceof Error ? err.message : "This reset link is invalid or expired.");
+        setMessage(getAuthErrorMessage(err));
       }
     }
     verify();
@@ -56,7 +57,7 @@ function ResetPasswordPageInner() {
       setTimeout(() => router.push("/login"), 1200);
     } catch (err: unknown) {
       setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Could not reset password.");
+      setMessage(getAuthErrorMessage(err));
     }
   }
 

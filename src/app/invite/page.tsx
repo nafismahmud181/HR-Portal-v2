@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 function InviteSetPasswordPageInner() {
   const params = useSearchParams();
@@ -121,7 +122,7 @@ function InviteSetPasswordPageInner() {
       }
     } catch (err: unknown) {
       console.error("Invite flow error:", err);
-      setError(err instanceof Error ? err.message : "Unable to set password");
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }

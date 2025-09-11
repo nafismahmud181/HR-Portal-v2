@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { FirebaseError } from "firebase/app";
 import { useRouter } from "next/navigation";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
       setMessage("Password reset email sent. Check your inbox.");
     } catch (err: unknown) {
       setStatus("error");
-      setMessage(err instanceof FirebaseError ? err.message : "Unable to send reset email.");
+      setMessage(getAuthErrorMessage(err));
     }
   }
 
