@@ -22,8 +22,8 @@ export async function checkSetupStatus(user: User): Promise<SetupStatus> {
     const orgDoc = await getDoc(orgRef);
 
     if (!orgDoc.exists()) {
-      // Organization doesn't exist, redirect to register
-      return { isSetupComplete: false, redirectTo: "/register" };
+      // Organization doesn't exist, redirect to company setup
+      return { isSetupComplete: false, redirectTo: "/onboarding/company-setup" };
     }
 
     const orgData = orgDoc.data();

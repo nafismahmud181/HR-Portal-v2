@@ -145,7 +145,7 @@ export default function LoginPage() {
             {error ? <p className="text-[14px] text-[#ef4444]">{error}</p> : null}
 
             <p className="text-[14px] text-[#6b7280] text-center">
-              Don’t have an account? <Link href="/register" className="text-[#f97316]">Start free trial</Link>
+              Don’t have an account? <Link href="/register" className="text-[#f97316]">Sign up</Link>
             </p>
           </form>
         </div>

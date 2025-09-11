@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import Link from "next/link";
@@ -378,8 +378,29 @@ export default function CompanySetupPage() {
       // Find the organization document for this user
       const orgId = user.uid; // Assuming orgId is same as admin user ID for now
       
-      // Update organization document with all collected data
+      // Check if organization document exists, create if it doesn't
       const orgRef = doc(db, "organizations", orgId);
+      const orgDoc = await getDoc(orgRef);
+      
+      if (!orgDoc.exists()) {
+        // Create the organization document first
+        await setDoc(orgRef, {
+          name: companyInfo.displayName || companyInfo.legalName,
+          createdBy: user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Create admin user membership
+        await setDoc(doc(db, "organizations", orgId, "users", user.uid), {
+          uid: user.uid,
+          email: user.email || "",
+          role: "admin",
+          createdAt: serverTimestamp(),
+        });
+      }
+      
+      // Update organization document with all collected data
       await updateDoc(orgRef, {
         // Company info
         legalName: companyInfo.legalName,
@@ -415,8 +436,8 @@ export default function CompanySetupPage() {
         setupCompletedAt: new Date()
       });
 
-      // Redirect to plan selection
-      router.push("/onboarding/select-plan");
+      // Redirect to admin dashboard
+      router.push("/admin");
     } catch (err) {
       console.error("Error completing company setup:", err);
       setError("Failed to save company information. Please try again.");

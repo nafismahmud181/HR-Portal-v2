@@ -23,13 +23,19 @@ service cloud.firestore {
     // Organizations - proper isolation between organizations
     match /organizations/{orgId} {
       // Allow read if user is authenticated and is a member of THIS organization
-      allow read: if isOrgMember(orgId) || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+      // Also allow if user.uid matches orgId (for initial setup)
+      allow read: if isOrgMember(orgId) || (isSignedIn() && resource.data.createdBy == request.auth.uid) || (isSignedIn() && request.auth.uid == orgId);
       
       // Allow create if user is authenticated (for new organizations)
       allow create: if isSignedIn();
       
       // Allow update/delete if user is the creator or admin of THIS organization
-      allow update, delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isOrgAdmin(orgId));
+      // Also allow if user.uid matches orgId (for initial setup)
+      allow update, delete: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid || 
+        isOrgAdmin(orgId) || 
+        request.auth.uid == orgId
+      );
 
       // Organization users subcollection
       match /users/{userId} {
