@@ -70,26 +70,26 @@ export default function TemplateEditorPage() {
 }
 
 function LoeEditor() {
-  const [employeeName, setEmployeeName] = useState("Ben Macklemoore");
-  const [designation, setDesignation] = useState("Software Engineer");
-  const [department, setDepartment] = useState("Engineering");
+  const [employeeName, setEmployeeName] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [department, setDepartment] = useState("");
   const [employmentType, setEmploymentType] = useState("Full-time");
-  const [employeeId, setEmployeeId] = useState("EMP-1024");
-  const [dateOfJoining, setDateOfJoining] = useState("2019-06-01");
-  const [currentSalary, setCurrentSalary] = useState("$96,000 per annum");
-  const [companyName, setCompanyName] = useState("HRMSTech");
-  const [companyStreet, setCompanyStreet] = useState("3781 Patterson Street");
-  const [companyCity, setCompanyCity] = useState("Houston");
-  const [companyState, setCompanyState] = useState("TX");
-  const [companyZip, setCompanyZip] = useState("77092");
-  const [companyCountry, setCompanyCountry] = useState("USA");
+  const [employeeId, setEmployeeId] = useState("");
+  const [dateOfJoining, setDateOfJoining] = useState("");
+  const [currentSalary, setCurrentSalary] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyStreet, setCompanyStreet] = useState("");
+  const [companyCity, setCompanyCity] = useState("");
+  const [companyState, setCompanyState] = useState("");
+  const [companyZip, setCompanyZip] = useState("");
+  const [companyCountry, setCompanyCountry] = useState("");
   const [issueDate, setIssueDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
   );
-  const [hrName, setHrName] = useState("Harry Mayer");
-  const [hrTitle, setHrTitle] = useState("HR Manager");
-  const [hrEmail, setHrEmail] = useState("hr@hrmstech.com");
-  const [hrPhone, setHrPhone] = useState("+1 (555) 012-3456");
+  const [hrName, setHrName] = useState("");
+  const [hrTitle, setHrTitle] = useState("");
+  const [hrEmail, setHrEmail] = useState("");
+  const [hrPhone, setHrPhone] = useState("");
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [bulkItems, setBulkItems] = useState<
     Array<{
@@ -129,9 +129,9 @@ function LoeEditor() {
     `${companyCity}, ${companyState}, ${companyZip}`.trim();
 
   function handleExport() {
-    const formattedJoin = formatLongDate(dateOfJoining);
+    const formattedJoin = formatLongDate(dateOfJoining) || '[Date of Joining]';
     const formattedIssue = formatLongDate(issueDate);
-    const addressHtml = `${companyAddressLine}<br/>${companyCityLine}<br/>${companyCountry}`;
+    const addressHtml = `${companyAddressLine || '[Street Address]'}<br/>${companyCityLine || '[City, State, Zip]'}<br/>${companyCountry || '[Country]'}`;
     const signatureImgHTML = signatureDataUrl
       ? `<img src="${signatureDataUrl}" style="height:64px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
       : "";
@@ -167,22 +167,22 @@ function LoeEditor() {
       <div class="card">
         <div class="header"><div class="title">LETTER OF EMPLOYMENT</div></div>
         <div class="content">
-          <div class="row"><div class="label">Name</div><div class="value">${employeeName}</div></div>
-          <div class="row"><div class="label">Employee ID</div><div class="value">${employeeId}</div></div>
-          <div class="row"><div class="label">Designation</div><div class="value">${designation}</div></div>
-          <div class="row"><div class="label">Department</div><div class="value">${department}</div></div>
+          <div class="row"><div class="label">Name</div><div class="value">${employeeName || '[Name]'}</div></div>
+          <div class="row"><div class="label">Employee ID</div><div class="value">${employeeId || '[Employee ID]'}</div></div>
+          <div class="row"><div class="label">Designation</div><div class="value">${designation || '[Designation]'}</div></div>
+          <div class="row"><div class="label">Department</div><div class="value">${department || '[Department]'}</div></div>
           <div class="row"><div class="label">Employment</div><div class="value">${employmentType}</div></div>
           <div class="row"><div class="label">Joined</div><div class="value">${formattedJoin}</div></div>
-          <div class="row"><div class="label">Salary</div><div class="value">${currentSalary}</div></div>
+          <div class="row"><div class="label">Salary</div><div class="value">${currentSalary || '[Current Salary]'}</div></div>
           <div class="row"><div class="label">Address</div><div class="value">${addressHtml}</div></div>
 
           <div class="rule"></div>
 
-          <p class="para">This letter is to confirm that <strong>${employeeName}</strong> is employed with <strong>${companyName}</strong> as a <strong>${designation}</strong>${
-      department ? ` in the <strong>${department}</strong> department` : ""
-    } since ${formattedJoin}. The nature of employment is ${employmentType.toLowerCase()} and the current compensation is ${currentSalary}.</p>
+          <p class="para">This letter is to confirm that <strong>${employeeName || '[Name]'}</strong> is employed with <strong>${companyName || '[Company Name]'}</strong> as a <strong>${designation || '[Designation]'}</strong>${
+      department ? ` in the <strong>${department}</strong> department` : ` in the <strong>[Department]</strong> department`
+    } since ${formattedJoin}. The nature of employment is ${employmentType.toLowerCase()} and the current compensation is ${currentSalary || '[Current Salary]'}.</p>
 
-          <p class="para">This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact ${hrName} (${hrTitle}) at ${hrEmail} or ${hrPhone}.</p>
+          <p class="para">This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact ${hrName || '[HR Name]'} (${hrTitle || '[HR Title]'}) at ${hrEmail || '[HR Email]'} or ${hrPhone || '[HR Phone]'}.</p>
 
           <div class="rule"></div>
 
@@ -190,9 +190,9 @@ function LoeEditor() {
             <div class="issued">Issued on ${formattedIssue}</div>
             <div class="sign">
               ${signatureImgHTML}
-              <div class="sign-name">${hrName}</div>
-              <div class="sign-meta">${hrTitle}</div>
-              <div class="sign-meta">${companyName}</div>
+              <div class="sign-name">${hrName || '[HR Name]'}</div>
+              <div class="sign-meta">${hrTitle || '[HR Title]'}</div>
+              <div class="sign-meta">${companyName || '[Company Name]'}</div>
             </div>
           </div>
         </div>
@@ -339,55 +339,55 @@ function LoeEditor() {
   function handleExportBulk() {
     if (bulkItems.length === 0) return;
     const formattedIssue = formatLongDate(issueDate);
-    const addressHtml = `${companyAddressLine}<br/>${companyCityLine}<br/>${companyCountry}`;
+    const addressHtml = `${companyAddressLine || '[Street Address]'}<br/>${companyCityLine || '[City, State, Zip]'}<br/>${companyCountry || '[Country]'}`;
     const signatureImgHTML = signatureDataUrl
       ? `<img src="${signatureDataUrl}" style="height:60px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
       : "";
 
     const docs = bulkItems
       .map((it) => {
-        const formattedJoin = formatLongDate(it.dateOfJoining);
+        const formattedJoin = formatLongDate(it.dateOfJoining) || '[Date of Joining]';
         return `
         <div class="doc">
           <div class="card">
             <div class="header"><div class="title">LETTER OF EMPLOYMENT</div></div>
             <div class="content">
               <div class="row"><div class="label">Name</div><div class="value">${
-                it.employeeName
+                it.employeeName || '[Name]'
               }</div></div>
               <div class="row"><div class="label">Employee ID</div><div class="value">${
-                it.employeeId
+                it.employeeId || '[Employee ID]'
               }</div></div>
               <div class="row"><div class="label">Designation</div><div class="value">${
-                it.designation
+                it.designation || '[Designation]'
               }</div></div>
               <div class="row"><div class="label">Department</div><div class="value">${
-                it.department
+                it.department || '[Department]'
               }</div></div>
               <div class="row"><div class="label">Employment</div><div class="value">${
                 it.employmentType
               }</div></div>
               <div class="row"><div class="label">Joined</div><div class="value">${formattedJoin}</div></div>
               <div class="row"><div class="label">Salary</div><div class="value">${
-                it.currentSalary
+                it.currentSalary || '[Current Salary]'
               }</div></div>
               <div class="row"><div class="label">Address</div><div class="value">${addressHtml}</div></div>
 
               <div class="rule"></div>
 
               <p class="para">This letter is to confirm that <strong>${
-                it.employeeName
-              }</strong> is employed with <strong>${companyName}</strong> as a <strong>${
-          it.designation
+                it.employeeName || '[Name]'
+              }</strong> is employed with <strong>${companyName || '[Company Name]'}</strong> as a <strong>${
+          it.designation || '[Designation]'
         }</strong>${
           it.department
             ? ` in the <strong>${it.department}</strong> department`
-            : ""
+            : ` in the <strong>[Department]</strong> department`
         } since ${formattedJoin}. The nature of employment is ${it.employmentType.toLowerCase()} and the current compensation is ${
-          it.currentSalary
+          it.currentSalary || '[Current Salary]'
         }.</p>
 
-              <p class="para">This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact ${hrName} (${hrTitle}) at ${hrEmail} or ${hrPhone}.</p>
+              <p class="para">This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact ${hrName || '[HR Name]'} (${hrTitle || '[HR Title]'}) at ${hrEmail || '[HR Email]'} or ${hrPhone || '[HR Phone]'}.</p>
 
               <div class="rule"></div>
 
@@ -395,9 +395,9 @@ function LoeEditor() {
                 <div class="issued">Issued on ${formattedIssue}</div>
                 <div class="sign">
                   ${signatureImgHTML}
-                  <div class="sign-name">${hrName}</div>
-                  <div class="sign-meta">${hrTitle}</div>
-                  <div class="sign-meta">${companyName}</div>
+                  <div class="sign-name">${hrName || '[HR Name]'}</div>
+                  <div class="sign-meta">${hrTitle || '[HR Title]'}</div>
+                  <div class="sign-meta">${companyName || '[Company Name]'}</div>
                 </div>
               </div>
             </div>
@@ -841,19 +841,19 @@ function LoeEditor() {
                   <div className="space-y-1 text-[#111827]">
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Name</span>
-                      <span className="font-medium">{employeeName}</span>
+                      <span className="font-medium">{employeeName || '[Name]'}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Employee ID</span>
-                      <span>{employeeId}</span>
+                      <span>{employeeId || '[Employee ID]'}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Designation</span>
-                      <span>{designation}</span>
+                      <span>{designation || '[Designation]'}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Department</span>
-                      <span>{department}</span>
+                      <span>{department || '[Department]'}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Employment</span>
@@ -861,20 +861,20 @@ function LoeEditor() {
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Joined</span>
-                      <span>{formatLongDate(dateOfJoining)}</span>
+                      <span>{formatLongDate(dateOfJoining) || '[Date of Joining]'}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Salary</span>
-                      <span>{currentSalary}</span>
+                      <span>{currentSalary || '[Current Salary]'}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Address</span>
                       <span>
-                        {companyAddressLine}
+                        {companyAddressLine || '[Street Address]'}
                         <br />
-                        {companyCityLine}
+                        {companyCityLine || '[City, State, Zip]'}
                         <br />
-                        {companyCountry}
+                        {companyCountry || '[Country]'}
                       </span>
                     </div>
                   </div>
@@ -884,10 +884,10 @@ function LoeEditor() {
                   <div className="space-y-4 leading-relaxed text-[#111827]">
                     <p>
                       This letter is to confirm that{" "}
-                      <span className="font-medium">{employeeName}</span> is
+                      <span className="font-medium">{employeeName || '[Name]'}</span> is
                       employed with
-                      <span className="font-medium"> {companyName}</span> as a{" "}
-                      <span className="font-medium">{designation}</span>
+                      <span className="font-medium"> {companyName || '[Company Name]'}</span> as a{" "}
+                      <span className="font-medium">{designation || '[Designation]'}</span>
                       {department ? (
                         <>
                           {" "}
@@ -895,16 +895,18 @@ function LoeEditor() {
                           <span className="font-medium">{department}</span>{" "}
                           department
                         </>
-                      ) : null}{" "}
-                      since {formatLongDate(dateOfJoining)}. The nature of
+                      ) : (
+                        <span> in the <span className="font-medium">[Department]</span> department</span>
+                      )}{" "}
+                      since {formatLongDate(dateOfJoining) || '[Date of Joining]'}. The nature of
                       employment is {employmentType.toLowerCase()} and the
-                      current compensation is {currentSalary}.
+                      current compensation is {currentSalary || '[Current Salary]'}.
                     </p>
                     <p>
                       This letter is issued upon request of the employee for
                       whatever purpose it may serve. For additional
-                      verification, please contact {hrName} ({hrTitle}) at{" "}
-                      {hrEmail} or {hrPhone}.
+                      verification, please contact {hrName || '[HR Name]'} ({hrTitle || '[HR Title]'}) at{" "}
+                      {hrEmail || '[HR Email]'} or {hrPhone || '[HR Phone]'}.
                     </p>
                   </div>
 
@@ -925,12 +927,12 @@ function LoeEditor() {
                           unoptimized
                         />
                       )}
-                      <div className="text-[18px] font-semibold">{hrName}</div>
+                      <div className="text-[18px] font-semibold">{hrName || '[HR Name]'}</div>
                       <div className="text-[12px] text-[#6b7280]">
-                        {hrTitle}
+                        {hrTitle || '[HR Title]'}
                       </div>
                       <div className="text-[12px] text-[#6b7280]">
-                        {companyName}
+                        {companyName || '[Company Name]'}
                       </div>
                     </div>
                   </div>
