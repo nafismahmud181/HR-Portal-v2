@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [source, setSource] = useState("");
   const [companySize, setCompanySize] = useState("");
   const [adminRole, setAdminRole] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -50,6 +51,9 @@ export default function RegisterPage() {
       }
       if (!company.trim()) {
         throw new Error("Company name is required.");
+      }
+      if (!agreeTerms) {
+        throw new Error("You must agree to the Terms of Service and Privacy Policy.");
       }
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
@@ -110,11 +114,22 @@ export default function RegisterPage() {
         <form onSubmit={onSubmit} className="mt-8 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="email" className="block mb-1 text-[14px] font-medium text-[#374151]">Work email</label>
+              <label htmlFor="email" className="block mb-1 text-[14px] font-medium text-[#374151]">Work Email Address</label>
               <input id="email" type="email" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="password" className="block mb-1 text-[14px] font-medium text-[#374151]">Password</label>
+              <label htmlFor="company" className="block mb-1 text-[14px] font-medium text-[#374151]">Company Name</label>
+              <input id="company" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="Acme Inc." value={company} onChange={(e) => setCompany(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="fullName" className="block mb-1 text-[14px] font-medium text-[#374151]">Full Name</label>
+              <input id="fullName" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="Jane Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="password" className="block mb-1 text-[14px] font-medium text-[#374151]">Create Password</label>
               <input id="password" type="password" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
               <p className="mt-1 text-[12px] text-[#6b7280]">At least 8 characters, include letters and numbers.</p>
             </div>
@@ -122,36 +137,7 @@ export default function RegisterPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="fullName" className="block mb-1 text-[14px] font-medium text-[#374151]">Full name</label>
-              <input id="fullName" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="Jane Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-            </div>
-            <div>
-              <label htmlFor="company" className="block mb-1 text-[14px] font-medium text-[#374151]">Company name</label>
-              <input id="company" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="Acme Inc." value={company} onChange={(e) => setCompany(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="phone" className="block mb-1 text-[14px] font-medium text-[#374151]">Phone number (optional)</label>
-              <input id="phone" className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px]" placeholder="+1 555 555 5555" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div>
-              <label htmlFor="source" className="block mb-1 text-[14px] font-medium text-[#374151]">How did you hear about us? (optional)</label>
-              <select id="source" className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={source} onChange={(e) => setSource(e.target.value)}>
-                <option value="">Select</option>
-                <option value="search">Search engine</option>
-                <option value="friend">Friend / colleague</option>
-                <option value="social">Social media</option>
-                <option value="ad">Advertisement</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="size" className="block mb-1 text-[14px] font-medium text-[#374151]">Company size</label>
+              <label htmlFor="size" className="block mb-1 text-[14px] font-medium text-[#374151]">Company Size</label>
               <select id="size" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={companySize} onChange={(e) => setCompanySize(e.target.value)}>
                 <option value="">Select size</option>
                 <option value="1-10">1-10 employees</option>
@@ -162,7 +148,7 @@ export default function RegisterPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="role" className="block mb-1 text-[14px] font-medium text-[#374151]">Your role</label>
+              <label htmlFor="role" className="block mb-1 text-[14px] font-medium text-[#374151]">Your Role</label>
               <select id="role" required className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] bg-white" value={adminRole} onChange={(e) => setAdminRole(e.target.value)}>
                 <option value="">Select role</option>
                 <option value="HR Manager">HR Manager</option>
@@ -171,6 +157,26 @@ export default function RegisterPage() {
                 <option value="People Operations">People Operations</option>
               </select>
             </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="agreeTerms"
+              checked={agreeTerms}
+              onChange={(e) => setAgreeTerms(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[#d1d5db] text-[#f97316] focus:ring-[#f97316]"
+            />
+            <label htmlFor="agreeTerms" className="text-[14px] text-[#374151]">
+              I agree to the{" "}
+              <Link href="/terms" className="text-[#f97316] hover:underline">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-[#f97316] hover:underline">
+                Privacy Policy
+              </Link>
+            </label>
           </div>
 
           <button type="submit" disabled={loading} className="w-full rounded-md bg-[#1f2937] text-white px-4 py-3 text-[16px] font-medium hover:bg-[#111827] disabled:opacity-60">{loading ? "Creating…" : "Signup as admin"}</button>
