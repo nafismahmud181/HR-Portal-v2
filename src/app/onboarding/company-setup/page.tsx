@@ -240,6 +240,8 @@ export default function CompanySetupPage() {
     country: ""
   });
 
+  const [sameAsLegalName, setSameAsLegalName] = useState(false);
+
   const [companySize, setCompanySize] = useState<CompanySize>({
     employeeCount: 10,
     growthExpectation: "Moderate growth (11-50% growth)",
@@ -265,7 +267,21 @@ export default function CompanySetupPage() {
   });
 
   const handleCompanyInfoChange = (field: keyof CompanyInfo, value: string) => {
-    setCompanyInfo(prev => ({ ...prev, [field]: value }));
+    setCompanyInfo(prev => {
+      const updated = { ...prev, [field]: value };
+      // If legal name changes and checkbox is checked, update display name too
+      if (field === 'legalName' && sameAsLegalName) {
+        updated.displayName = value;
+      }
+      return updated;
+    });
+  };
+
+  const handleSameAsLegalNameChange = (checked: boolean) => {
+    setSameAsLegalName(checked);
+    if (checked) {
+      setCompanyInfo(prev => ({ ...prev, displayName: prev.legalName }));
+    }
   };
 
   const handleCompanySizeChange = (field: keyof CompanySize, value: string | number) => {
@@ -468,6 +484,19 @@ export default function CompanySetupPage() {
           <p className="text-xs text-[#6b7280] mt-1">This appears on official documents</p>
         </div>
 
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="sameAsLegalName"
+            checked={sameAsLegalName}
+            onChange={(e) => handleSameAsLegalNameChange(e.target.checked)}
+            className="h-4 w-4 text-[#f97316] focus:ring-[#f97316] border-[#d1d5db] rounded"
+          />
+          <label htmlFor="sameAsLegalName" className="ml-2 text-sm text-[#374151]">
+            Same as Legal Company Name
+          </label>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-[#374151] mb-2">
             Display Name
@@ -477,7 +506,8 @@ export default function CompanySetupPage() {
             value={companyInfo.displayName}
             onChange={(e) => handleCompanyInfoChange("displayName", e.target.value)}
             placeholder="Acme Corp"
-            className="w-full px-4 py-3 border border-[#d1d5db] rounded-md text-base focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#fef7ed] transition-all duration-150 placeholder:text-[#9ca3af] text-[#374151]"
+            disabled={sameAsLegalName}
+            className={`w-full px-4 py-3 border border-[#d1d5db] rounded-md text-base focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#fef7ed] transition-all duration-150 placeholder:text-[#9ca3af] text-[#374151] ${sameAsLegalName ? 'bg-[#f9fafb] text-[#6b7280]' : ''}`}
           />
           <p className="text-xs text-[#6b7280] mt-1">How employees see your company - defaults to legal</p>
         </div>

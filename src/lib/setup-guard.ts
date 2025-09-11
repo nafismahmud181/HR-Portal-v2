@@ -73,7 +73,6 @@ export const ALLOWED_WITHOUT_SETUP = [
   "/onboarding/select-plan",
   "/onboarding/getting-started",
   "/onboarding/quick-setup",
-  "/setup",
   "/logout",
   "/forgot",
   "/reset"

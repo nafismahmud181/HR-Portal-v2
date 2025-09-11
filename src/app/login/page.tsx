@@ -38,12 +38,12 @@ export default function LoginPage() {
             console.log("Found user with role:", role);
             router.replace(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
           } else {
-            console.log("No user document found, redirecting to setup");
-            router.replace("/setup");
+            console.log("No user document found, redirecting to company setup");
+            router.replace("/onboarding/company-setup");
           }
         } catch (error) {
           console.error("Error checking user role:", error);
-          router.replace("/setup");
+          router.replace("/onboarding/company-setup");
         }
       } else {
         setCheckingAuth(false);
@@ -94,12 +94,12 @@ export default function LoginPage() {
                     console.log("Login: Found user with role:", role);
                     router.push(role === "admin" ? "/admin" : role === "manager" ? "/manager" : "/employee");
                   } else {
-                    console.log("Login: No user document found, redirecting to setup");
-                    router.push("/setup");
+                    console.log("Login: No user document found, redirecting to company setup");
+                    router.push("/onboarding/company-setup");
                   }
                 } catch (error) {
                   console.error("Login: Error checking user role:", error);
-                  router.push("/setup");
+                  router.push("/onboarding/company-setup");
                 }
               } catch (err: unknown) {
                 setError(getAuthErrorMessage(err));
