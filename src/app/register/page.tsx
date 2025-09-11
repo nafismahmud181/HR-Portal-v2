@@ -89,7 +89,7 @@ export default function RegisterPage() {
         // ignore if not exists/permission denied
       }
 
-      router.replace("/setup");
+      router.replace("/onboarding/company-setup");
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     } finally {

@@ -7,6 +7,7 @@ import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { collectionGroup, getDocs, query, where } from "firebase/firestore";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { checkSetupStatus } from "@/lib/setup-guard";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -19,6 +20,14 @@ export default function LoginPage() {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          // Check if user has completed company setup first
+          const setupStatus = await checkSetupStatus(user);
+          if (!setupStatus.isSetupComplete && setupStatus.redirectTo) {
+            console.log("Setup not complete, redirecting to:", setupStatus.redirectTo);
+            router.replace(setupStatus.redirectTo);
+            return;
+          }
+
           // First try to find user in any organization
           const cg = collectionGroup(db, "users");
           const q = query(cg, where("uid", "==", user.uid));
@@ -67,6 +76,15 @@ export default function LoginPage() {
                 const cred = await signInWithEmailAndPassword(auth, email, password);
                 try {
                   console.log("Signed in user:", cred.user.uid);
+                  
+                  // Check if user has completed company setup first
+                  const setupStatus = await checkSetupStatus(cred.user);
+                  if (!setupStatus.isSetupComplete && setupStatus.redirectTo) {
+                    console.log("Login: Setup not complete, redirecting to:", setupStatus.redirectTo);
+                    router.push(setupStatus.redirectTo);
+                    return;
+                  }
+
                   const cg = collectionGroup(db, "users");
                   const q = query(cg, where("uid", "==", cred.user.uid));
                   const snap = await getDocs(q);

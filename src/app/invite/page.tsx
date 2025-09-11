@@ -6,6 +6,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { checkSetupStatus } from "@/lib/setup-guard";
 
 function InviteSetPasswordPageInner() {
   const params = useSearchParams();
@@ -106,6 +107,16 @@ function InviteSetPasswordPageInner() {
         console.warn("Failed to mark invite as accepted:", inviteErr);
       }
       
+      // Check if company setup is completed before redirecting
+      console.log("Checking company setup status...");
+      const setupStatus = await checkSetupStatus(cred.user);
+      
+      if (!setupStatus.isSetupComplete && setupStatus.redirectTo) {
+        console.log("Setup not complete, redirecting to:", setupStatus.redirectTo);
+        router.push(setupStatus.redirectTo);
+        return;
+      }
+
       // Redirect based on role
       const userRole = inviteData?.orgRole || "employee";
       console.log("Redirecting user with role:", userRole);

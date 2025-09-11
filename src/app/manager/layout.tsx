@@ -5,6 +5,7 @@ import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collectionGroup, getDocs, query, where } from "firebase/firestore";
+import { checkSetupStatus } from "@/lib/setup-guard";
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -19,6 +20,13 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         return;
       }
       try {
+        // Check if user has completed company setup
+        const setupStatus = await checkSetupStatus(user);
+        if (!setupStatus.isSetupComplete && setupStatus.redirectTo) {
+          router.replace(setupStatus.redirectTo);
+          return;
+        }
+
         const cg = collectionGroup(db, "users");
         const q = query(cg, where("uid", "==", user.uid));
         const snap = await getDocs(q);
