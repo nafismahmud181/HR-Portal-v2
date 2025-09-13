@@ -104,3 +104,87 @@ export interface RoleAnalytics {
   rolesByCategory: { [category: string]: number };
   averageSalaryByLevel: { [level: string]: number };
 }
+
+export interface RoleTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: "executive" | "management" | "professional" | "support" | "specialized";
+  subcategory: string;
+  isPreBuilt: boolean;
+  isCustom: boolean;
+  createdBy?: string;
+  organizationId?: string;
+  roleData: Partial<Role>;
+  usageCount: number;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoleAssignment {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeEmail: string;
+  roleId: string;
+  roleTitle: string;
+  departmentId: string;
+  departmentName: string;
+  assignedDate: string;
+  startDate: string;
+  endDate?: string;
+  status: "active" | "inactive" | "pending";
+  assignedBy: string;
+  notes?: string;
+}
+
+export interface RoleVacancy {
+  id: string;
+  roleId: string;
+  roleTitle: string;
+  departmentId: string;
+  departmentName: string;
+  status: "open" | "filled" | "cancelled" | "on_hold";
+  priority: "low" | "medium" | "high" | "urgent";
+  hiringManager: string;
+  recruiter?: string;
+  targetStartDate: string;
+  actualStartDate?: string;
+  budgetRange: {
+    min: number;
+    max: number;
+    currency: string;
+  };
+  requirements: string[];
+  applicationsCount: number;
+  interviewsScheduled: number;
+  offersMade: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RolePerformanceAnalytics {
+  roleId: string;
+  roleTitle: string;
+  employeeSatisfaction: number;
+  turnoverRate: number;
+  averageTenure: number;
+  performanceScore: number;
+  promotionRate: number;
+  trainingCompletionRate: number;
+  metrics: {
+    period: string;
+    satisfaction: number;
+    turnover: number;
+    tenure: number;
+    performance: number;
+  }[];
+}
+
+export interface TemplateCategory {
+  name: string;
+  description: string;
+  templates: RoleTemplate[];
+  icon: string;
+}
