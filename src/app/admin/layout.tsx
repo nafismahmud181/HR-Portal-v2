@@ -110,6 +110,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: "/admin/learning", label: "Learning & Development" },
             { href: "/admin/reports", label: "Reports & Analytics" },
             { href: "/admin/templates", label: "Templates" },
+            { href: "/admin/organization/departments", label: "Departments" },
             { href: "/admin/settings", label: "Company Settings" },
             { href: "/admin/system", label: "System Administration" },
           ].map((item) => (
@@ -153,6 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 { href: "/admin/learning", label: "Learning & Development" },
                 { href: "/admin/reports", label: "Reports & Analytics" },
                 { href: "/admin/templates", label: "Templates" },
+                { href: "/admin/organization/departments", label: "Departments" },
                 { href: "/admin/settings", label: "Company Settings" },
                 { href: "/admin/system", label: "System Administration" },
               ].map((item) => (

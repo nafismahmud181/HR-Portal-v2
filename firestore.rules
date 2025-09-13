@@ -98,6 +98,21 @@ service cloud.firestore {
           allow create, update, delete: if isOrgAdmin(orgId);
         }
       }
+
+      // Change Logs - audit trail for organizational changes
+      match /changeLogs/{logId} {
+        allow read: if isOrgMember(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId);
+      }
+
+      // Notifications - employee notifications
+      match /notifications/{notificationId} {
+        allow read: if isOrgMember(orgId) && (
+          isOrgAdmin(orgId) || 
+          request.auth.uid == resource.data.employeeId
+        );
+        allow create, update, delete: if isOrgAdmin(orgId);
+      }
     }
 
     // Collection group access for organization users (for login queries)
