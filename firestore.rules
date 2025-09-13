@@ -73,11 +73,12 @@ service cloud.firestore {
       match /departments/{departmentId} {
         allow read: if isOrgMember(orgId);
         allow create, update, delete: if isOrgAdmin(orgId);
+      }
 
-        match /roles/{roleId} {
-          allow read: if isOrgMember(orgId);
-          allow create, update, delete: if isOrgAdmin(orgId);
-        }
+      // Roles subcollection - only accessible within the organization
+      match /roles/{roleId} {
+        allow read: if isOrgMember(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId);
       }
 
       // Leave Requests - only accessible within the organization
