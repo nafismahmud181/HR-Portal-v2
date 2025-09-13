@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [notFound] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {

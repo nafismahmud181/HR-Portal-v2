@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { doc, updateDoc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import Link from "next/link";
@@ -120,8 +120,35 @@ export default function CompanySetupPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      
+      // If user is logged in, try to fetch existing company name from organization
+      if (user) {
+        try {
+          // Query for organization where user is the creator
+          const orgsRef = collection(db, "organizations");
+          const q = query(orgsRef, where("createdBy", "==", user.uid));
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+            const orgDoc = querySnapshot.docs[0];
+            const orgData = orgDoc.data();
+            const existingName = orgData?.name || orgData?.legalName || "";
+            
+            if (existingName) {
+              setCompanyInfo(prev => ({
+                ...prev,
+                legalName: existingName,
+                displayName: existingName
+              }));
+              setSameAsLegalName(true); // Auto-check the checkbox since we're pre-filling both fields
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching organization data:", error);
+        }
+      }
     });
     return () => unsub();
   }, []);

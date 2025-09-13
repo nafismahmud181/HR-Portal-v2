@@ -13,7 +13,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const pathname = usePathname();
-  const [notFound, setNotFound] = useState(false);
+  const [notFound] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {

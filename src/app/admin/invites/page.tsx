@@ -9,7 +9,7 @@ type InviteRow = { email: string; name?: string | null; department?: string | nu
 
 export default function AdminInvitesPage() {
   const [loading, setLoading] = useState(true);
-  const [orgId, setOrgId] = useState<string | null>(null);
+  const [, setOrgId] = useState<string | null>(null);
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "pending" | "accepted">("All");

@@ -6,7 +6,7 @@ import { addDoc, collection, collectionGroup, getDocs, onSnapshot, query, server
 
 export default function EmployeeLeavePage() {
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [type, setType] = useState("Casual");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");

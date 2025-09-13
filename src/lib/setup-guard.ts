@@ -45,7 +45,7 @@ export async function checkSetupStatus(user: User): Promise<SetupStatus> {
  * Hook to check setup status and redirect if needed
  * Use this in layouts or pages that require setup completion
  */
-export function useSetupGuard(user: User | null, router: any) {
+export function useSetupGuard(user: User | null, router: { replace: (path: string) => void }) {
   const checkAndRedirect = async () => {
     if (!user) return;
 

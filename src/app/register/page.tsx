@@ -13,8 +13,8 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [source, setSource] = useState("");
+  const [phone] = useState("");
+  const [source] = useState("");
   const [companySize, setCompanySize] = useState("");
   const [adminRole, setAdminRole] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -23,7 +23,7 @@ export default function RegisterPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, () => {
       // Avoid redirecting away from /register to prevent race with signup flow
       setCheckingAuth(false);
     });
