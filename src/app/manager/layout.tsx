@@ -52,7 +52,16 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
     return () => unsub();
   }, [router]);
 
-  if (checkingAuth) return null;
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#ffffff]">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#f97316] border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+          <p className="mt-4 text-[14px] text-[#6b7280]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (
