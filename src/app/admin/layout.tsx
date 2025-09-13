@@ -14,6 +14,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [notFound] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  
+  // Dropdown states
+  const [employeeManagementOpen, setEmployeeManagementOpen] = useState(false);
+  const [timeAttendanceOpen, setTimeAttendanceOpen] = useState(false);
+  const [compensationOpen, setCompensationOpen] = useState(false);
+  const [performanceDevOpen, setPerformanceDevOpen] = useState(false);
+  const [organizationOpen, setOrganizationOpen] = useState(false);
+  const [reportsToolsOpen, setReportsToolsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -62,6 +71,124 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setSigningOut(false);
     }
   }
+
+  const navigationGroups = [
+    {
+      title: "Employee Management",
+      isOpen: employeeManagementOpen,
+      setOpen: setEmployeeManagementOpen,
+      items: [
+        { href: "/admin/employees", label: "Employees" },
+        { href: "/admin/invites", label: "Invites" },
+        { href: "/admin/recruitment", label: "Recruitment" },
+      ]
+    },
+    {
+      title: "Time & Attendance",
+      isOpen: timeAttendanceOpen,
+      setOpen: setTimeAttendanceOpen,
+      items: [
+        { href: "/admin/time", label: "Time & Attendance" },
+        { href: "/admin/leave", label: "Leave" },
+      ]
+    },
+    {
+      title: "Compensation",
+      isOpen: compensationOpen,
+      setOpen: setCompensationOpen,
+      items: [
+        { href: "/admin/payroll", label: "Payroll" },
+      ]
+    },
+    {
+      title: "Performance & Development",
+      isOpen: performanceDevOpen,
+      setOpen: setPerformanceDevOpen,
+      items: [
+        { href: "/admin/performance", label: "Performance" },
+        { href: "/admin/learning", label: "Learning & Development" },
+      ]
+    },
+    {
+      title: "Organization",
+      isOpen: organizationOpen,
+      setOpen: setOrganizationOpen,
+      items: [
+        { href: "/admin/organization/departments", label: "Departments" },
+        { href: "/admin/roles", label: "Roles" },
+      ]
+    },
+    {
+      title: "Reports & Tools",
+      isOpen: reportsToolsOpen,
+      setOpen: setReportsToolsOpen,
+      items: [
+        { href: "/admin/reports", label: "Reports & Analytics" },
+        { href: "/admin/templates", label: "Templates" },
+      ]
+    },
+    {
+      title: "Settings",
+      isOpen: settingsOpen,
+      setOpen: setSettingsOpen,
+      items: [
+        { href: "/admin/settings", label: "Company Settings" },
+        { href: "/admin/system", label: "System Administration" },
+      ]
+    },
+  ];
+
+  const ChevronIcon = ({ isOpen }: { isOpen: boolean }) => (
+    <svg
+      className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+
+  const NavItems = ({ isMobile = false }: { isMobile?: boolean }) => (
+    <>
+      {/* Dashboard - standalone */}
+      <Link 
+        href="/admin" 
+        className="px-2 py-2 rounded hover:bg-[#f9fafb] block font-medium"
+        onClick={isMobile ? () => setMobileOpen(false) : undefined}
+      >
+        Dashboard
+      </Link>
+      
+      {/* Dropdown Groups */}
+      {navigationGroups.map((group, index) => (
+        <div key={index} className="relative">
+          <button
+            onClick={() => group.setOpen(!group.isOpen)}
+            className="w-full text-left px-2 py-2 rounded hover:bg-[#f9fafb] flex items-center justify-between"
+          >
+            <span>{group.title}</span>
+            <ChevronIcon isOpen={group.isOpen} />
+          </button>
+          {group.isOpen && (
+            <div className="ml-4 mt-1 space-y-1">
+              {group.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="px-2 py-2 rounded hover:bg-[#f9fafb] block text-[#6b7280] text-[13px]"
+                  onClick={isMobile ? () => setMobileOpen(false) : undefined}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </>
+  );
+
   if (checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#ffffff]">
@@ -97,28 +224,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
           <span className="text-[16px] font-semibold">HRMSTech</span>
         </div>
-        <nav className="mt-4 flex flex-col text-[14px]">
-          {[
-            { href: "/admin", label: "Dashboard" },
-            { href: "/admin/employees", label: "Employees" },
-            { href: "/admin/invites", label: "Invites" },
-            { href: "/admin/recruitment", label: "Recruitment" },
-            { href: "/admin/time", label: "Time & Attendance" },
-            { href: "/admin/leave", label: "Leave" },
-            { href: "/admin/payroll", label: "Payroll" },
-            { href: "/admin/performance", label: "Performance" },
-            { href: "/admin/learning", label: "Learning & Development" },
-            { href: "/admin/reports", label: "Reports & Analytics" },
-            { href: "/admin/templates", label: "Templates" },
-            { href: "/admin/organization/departments", label: "Departments" },
-            { href: "/admin/roles", label: "Roles" },
-            { href: "/admin/settings", label: "Company Settings" },
-            { href: "/admin/system", label: "System Administration" },
-          ].map((item) => (
-            <Link key={item.href} href={item.href} className="px-2 py-2 rounded hover:bg-[#f9fafb]">
-              {item.label}
-            </Link>
-          ))}
+        <nav className="mt-4 flex flex-col text-[14px] space-y-1">
+          <NavItems />
         </nav>
         <div className="mt-6 pt-4 border-t border-[#e5e7eb]">
           <button
@@ -142,28 +249,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               <button className="text-[14px] border border-[#d1d5db] px-2 py-1 rounded" onClick={() => setMobileOpen(false)}>Close</button>
             </div>
-            <nav className="mt-4 flex flex-col text-[14px]">
-              {[
-                { href: "/admin", label: "Dashboard" },
-                { href: "/admin/employees", label: "Employees" },
-                { href: "/admin/invites", label: "Invites" },
-                { href: "/admin/recruitment", label: "Recruitment" },
-                { href: "/admin/time", label: "Time & Attendance" },
-                { href: "/admin/leave", label: "Leave" },
-                { href: "/admin/payroll", label: "Payroll" },
-                { href: "/admin/performance", label: "Performance" },
-                { href: "/admin/learning", label: "Learning & Development" },
-                { href: "/admin/reports", label: "Reports & Analytics" },
-                { href: "/admin/templates", label: "Templates" },
-                { href: "/admin/organization/departments", label: "Departments" },
-                { href: "/admin/roles", label: "Roles" },
-                { href: "/admin/settings", label: "Company Settings" },
-                { href: "/admin/system", label: "System Administration" },
-              ].map((item) => (
-                <Link key={item.href} href={item.href} className="px-2 py-2 rounded hover:bg-[#f9fafb]" onClick={() => setMobileOpen(false)}>
-                  {item.label}
-                </Link>
-              ))}
+            <nav className="mt-4 flex flex-col text-[14px] space-y-1">
+              <NavItems isMobile={true} />
             </nav>
             <div className="mt-6 pt-4 border-t border-[#e5e7eb]">
               <button
@@ -188,5 +275,3 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   );
 }
-
-
