@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -60,7 +60,7 @@ export default function LoginPage() {
       <section className="p-8 md:p-12">
         <div className="max-w-[420px] mx-auto">
           <Link href="/" className="inline-flex items-center gap-2">
-            <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
+            <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
             <span className="text-[16px] font-semibold">HRMSTech</span>
           </Link>
           <h1 className="mt-10 text-[24px] font-semibold">Welcome back</h1>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 export default function Home() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -10,7 +11,7 @@ export default function Home() {
       <header aria-label="Primary" className="sticky top-0 z-50 backdrop-blur bg-white/80 border-b border-[#e5e7eb]">
         <div className="max-w-[1200px] mx-auto px-6 h-[60px] flex items-center justify-between">
           <a href="#" className="flex items-center gap-2">
-            <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
+            <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
             <span className="text-[16px] font-semibold text-[#1a1a1a]">HRMSTech</span>
           </a>
           <nav className="hidden sm:flex items-center gap-6 text-[14px] text-[#374151]">
@@ -205,7 +206,7 @@ export default function Home() {
         <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded bg-[#f97316]" aria-hidden />
+              <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={24} height={24} className="rounded" />
               <span className="text-[16px] font-semibold">HRMSTech</span>
             </div>
             <p className="mt-3 text-[14px] text-[#9ca3af]">Modern HR software for growing teams.</p>

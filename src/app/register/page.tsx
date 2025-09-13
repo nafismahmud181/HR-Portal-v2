@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
@@ -105,7 +106,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center px-6 bg-[#ffffff] text-[#1a1a1a]">
       <div className="w-full max-w-[560px]">
         <Link href="/" className="inline-flex items-center gap-2">
-          <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
+          <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
           <span className="text-[16px] font-semibold">HRMSTech</span>
         </Link>
         <h1 className="mt-8 text-[24px] font-semibold">Create your company</h1>

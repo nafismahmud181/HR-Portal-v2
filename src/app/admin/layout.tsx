@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -86,7 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="h-screen grid grid-cols-1 md:grid-cols-[240px_1fr] print:grid-cols-1 bg-[#ffffff] text-[#1a1a1a] overflow-hidden">
       <aside className="hidden md:block border-r border-[#e5e7eb] p-4 h-screen sticky top-0 overflow-y-auto print:hidden">
         <div className="px-2 py-3 flex items-center gap-2">
-          <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
+          <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
           <span className="text-[16px] font-semibold">HRMSTech</span>
         </div>
         <nav className="mt-4 flex flex-col text-[14px]">
@@ -127,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="fixed inset-y-0 left-0 z-50 w-[260px] bg-white border-r border-[#e5e7eb] p-4 overflow-y-auto">
             <div className="px-2 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
+                <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
                 <span className="text-[16px] font-semibold">HRMSTech</span>
               </div>
               <button className="text-[14px] border border-[#d1d5db] px-2 py-1 rounded" onClick={() => setMobileOpen(false)}>Close</button>

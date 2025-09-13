@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collectionGroup, getDocs, query, where } from "firebase/firestore";
@@ -80,7 +81,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
     <div className="min-h-screen bg-[#ffffff] text-[#1a1a1a] grid grid-cols-1 md:grid-cols-[260px_1fr]">
       <aside className="border-r border-[#e5e7eb] p-4 md:p-6">
         <Link href="/" className="inline-flex items-center gap-2">
-          <span className="h-5 w-5 rounded bg-[#f97316]" aria-hidden />
+          <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
           <span className="text-[16px] font-semibold">HRMSTech</span>
         </Link>
         <nav className="mt-6 space-y-1">
