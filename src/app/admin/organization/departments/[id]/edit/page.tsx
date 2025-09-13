@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -13,7 +13,6 @@ import {
   doc, 
   getDoc, 
   updateDoc, 
-  addDoc,
   writeBatch,
   serverTimestamp
 } from "firebase/firestore";
@@ -56,8 +55,8 @@ interface Employee {
 interface ChangeLog {
   id: string;
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: string | number | boolean | null;
+  newValue: string | number | boolean | null;
   changedBy: string;
   changedAt: string;
   reason?: string;
@@ -154,9 +153,9 @@ export default function EditDepartmentPage() {
       }
     });
     return () => unsub();
-  }, [router, departmentId]);
+  }, [router, departmentId, loadDepartment, loadDepartments, loadEmployees, loadChangeLogs]);
 
-  const loadDepartment = async (orgId: string) => {
+  const loadDepartment = useCallback(async (orgId: string) => {
     try {
       const deptRef = doc(db, "organizations", orgId, "departments", departmentId);
       const deptSnap = await getDoc(deptRef);
@@ -172,9 +171,9 @@ export default function EditDepartmentPage() {
       console.error("Error loading department:", error);
       router.replace("/admin/organization/departments");
     }
-  };
+  }, [departmentId, router]);
 
-  const loadDepartments = async (orgId: string) => {
+  const loadDepartments = useCallback(async (orgId: string) => {
     try {
       const deptCol = collection(db, "organizations", orgId, "departments");
       const snap = await getDocs(deptCol);
@@ -186,9 +185,9 @@ export default function EditDepartmentPage() {
     } catch (error) {
       console.error("Error loading departments:", error);
     }
-  };
+  }, [departmentId]);
 
-  const loadEmployees = async (orgId: string) => {
+  const loadEmployees = useCallback(async (orgId: string) => {
     try {
       const empCol = collection(db, "organizations", orgId, "employees");
       const snap = await getDocs(empCol);
@@ -201,9 +200,9 @@ export default function EditDepartmentPage() {
     } catch (error) {
       console.error("Error loading employees:", error);
     }
-  };
+  }, [department]);
 
-  const loadChangeLogs = async (orgId: string) => {
+  const loadChangeLogs = useCallback(async (orgId: string) => {
     try {
       const logsCol = collection(db, "organizations", orgId, "changeLogs");
       const q = query(logsCol, where("entityId", "==", departmentId), where("entityType", "==", "department"));
@@ -218,9 +217,9 @@ export default function EditDepartmentPage() {
       // Set empty array instead of leaving undefined
       setChangeLogs([]);
     }
-  };
+  }, [departmentId]);
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | boolean | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing
@@ -247,7 +246,7 @@ export default function EditDepartmentPage() {
     if (!originalData) return;
 
     const changes: string[] = [];
-    let affectedEmployees = departmentEmployees.length;
+    const affectedEmployees = departmentEmployees.length;
     let budgetImpact = 0;
     let riskLevel: "low" | "medium" | "high" = "low";
 
@@ -321,7 +320,7 @@ export default function EditDepartmentPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const logChanges = async (changes: Array<{field: string, oldValue: any, newValue: any}>) => {
+  const logChanges = async (changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}>) => {
     if (!orgId || !auth.currentUser) return;
 
     const batch = writeBatch(db);
@@ -344,7 +343,7 @@ export default function EditDepartmentPage() {
     await loadChangeLogs(orgId);
   };
 
-  const sendNotifications = async (changes: Array<{field: string, oldValue: any, newValue: any}>) => {
+  const sendNotifications = async (changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}>) => {
     if (!orgId || !notificationMessage) return;
 
     const notifications = departmentEmployees.map(emp => ({
@@ -420,7 +419,7 @@ export default function EditDepartmentPage() {
     setSaving(true);
     try {
       // Identify changes
-      const changes: Array<{field: string, oldValue: any, newValue: any}> = [];
+      const changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}> = [];
       
       Object.keys(formData).forEach(key => {
         if (formData[key as keyof Department] !== originalData[key as keyof Department]) {
@@ -460,25 +459,6 @@ export default function EditDepartmentPage() {
     }
   };
 
-  const getManagerName = (managerId?: string) => {
-    if (!managerId) return "—";
-    const manager = employees.find(emp => emp.id === managerId);
-    return manager?.name || "Unknown";
-  };
-
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      active: "bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]",
-      draft: "bg-[#fffbeb] text-[#b45309] border-[#fde68a]",
-      inactive: "bg-[#f3f4f6] text-[#6b7280] border-[#d1d5db]"
-    };
-    
-    return (
-      <span className={`text-[12px] px-2 py-1 rounded-full border ${styles[status as keyof typeof styles] || styles.inactive}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
 
   if (loading) {
     return (

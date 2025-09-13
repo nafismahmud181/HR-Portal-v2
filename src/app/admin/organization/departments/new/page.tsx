@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, getDocs, query, where, addDoc, doc, getDoc } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, query, where, addDoc } from "firebase/firestore";
 import Link from "next/link";
 
 interface Department {
@@ -158,7 +158,7 @@ export default function CreateDepartmentPage() {
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | boolean | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing

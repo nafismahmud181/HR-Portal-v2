@@ -29,7 +29,6 @@ interface Employee {
 
 export default function DepartmentsPage() {
   const router = useRouter();
-  const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -58,7 +57,6 @@ export default function DepartmentsPage() {
         
         const parentOrg = snap.docs[0].ref.parent.parent;
         const foundOrgId = parentOrg ? parentOrg.id : null;
-        setOrgId(foundOrgId);
         
         if (foundOrgId) {
           await loadDepartments(foundOrgId);
