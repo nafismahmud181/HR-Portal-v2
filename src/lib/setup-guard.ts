@@ -1,5 +1,5 @@
 import { User } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, collectionGroup } from "firebase/firestore";
 import { db } from "./firebase";
 
 export interface SetupStatus {
@@ -17,7 +17,32 @@ export async function checkSetupStatus(user: User): Promise<SetupStatus> {
   }
 
   try {
-    // Find the organization document for this user
+    // First, check if user is a member of any organization using collection group query
+    const usersRef = collectionGroup(db, "users");
+    const usersQuery = query(usersRef, where("uid", "==", user.uid));
+    const usersSnapshot = await getDocs(usersQuery);
+
+    if (!usersSnapshot.empty) {
+      // User is a member of an organization, get the organization document
+      const userDoc = usersSnapshot.docs[0];
+      const orgRef = userDoc.ref.parent.parent; // organizations/{orgId}
+      
+      if (orgRef) {
+        const orgDoc = await getDoc(orgRef);
+        if (orgDoc.exists()) {
+          const orgData = orgDoc.data();
+          const isSetupComplete = orgData?.setupCompleted === true;
+
+          if (!isSetupComplete) {
+            return { isSetupComplete: false, redirectTo: "/onboarding/company-setup" };
+          }
+
+          return { isSetupComplete: true };
+        }
+      }
+    }
+
+    // If not found as a member, check if user is the creator of an organization
     const orgsRef = collection(db, "organizations");
     const q = query(orgsRef, where("createdBy", "==", user.uid));
     const querySnapshot = await getDocs(q);
