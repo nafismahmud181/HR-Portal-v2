@@ -1,5 +1,5 @@
 import { User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 
 export interface SetupStatus {
@@ -17,15 +17,17 @@ export async function checkSetupStatus(user: User): Promise<SetupStatus> {
   }
 
   try {
-    // Check if organization document exists and setup is completed
-    const orgRef = doc(db, "organizations", user.uid);
-    const orgDoc = await getDoc(orgRef);
+    // Find the organization document for this user
+    const orgsRef = collection(db, "organizations");
+    const q = query(orgsRef, where("createdBy", "==", user.uid));
+    const querySnapshot = await getDocs(q);
 
-    if (!orgDoc.exists()) {
+    if (querySnapshot.empty) {
       // Organization doesn't exist, redirect to company setup
       return { isSetupComplete: false, redirectTo: "/onboarding/company-setup" };
     }
 
+    const orgDoc = querySnapshot.docs[0];
     const orgData = orgDoc.data();
     const isSetupComplete = orgData?.setupCompleted === true;
 

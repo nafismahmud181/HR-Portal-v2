@@ -7,6 +7,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, collectionGroup, getDocs, query, where, addDoc } from "firebase/firestore";
 import { Role, SkillRequirement, EducationalRequirement, ExperienceRequirement, Compensation, ReportingStructure, PerformanceMetric, CareerProgression, TrainingRequirement } from "@/types/role";
+import Modal from "@/components/Modal";
 
 interface Department {
   id: string;
@@ -26,6 +27,17 @@ export default function CreateRolePage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info"
+  });
   const [formData, setFormData] = useState<Partial<Role>>({
     title: "",
     code: "",
@@ -231,9 +243,54 @@ export default function CreateRolePage() {
     }));
   };
 
+  const showModal = (title: string, message: string, type: "success" | "error" | "warning" | "info" = "info") => {
+    setModal({
+      isOpen: true,
+      title,
+      message,
+      type
+    });
+  };
+
+  const closeModal = () => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  };
+
   const handleSave = async (status?: "draft" | "active") => {
-    if (!formData.title || !formData.primaryDepartmentId) {
-      alert("Please fill in all required fields");
+    // Check for required fields and provide specific error messages
+    const missingFields = [];
+    
+    if (!formData.title?.trim()) {
+      missingFields.push("Role Title");
+    }
+    
+    if (!formData.primaryDepartmentId) {
+      missingFields.push("Primary Department");
+    }
+    
+    if (!formData.description?.trim()) {
+      missingFields.push("Role Description");
+    }
+    
+    if (!formData.category) {
+      missingFields.push("Role Category");
+    }
+    
+    if (!formData.level) {
+      missingFields.push("Role Level");
+    }
+    
+    if (!formData.seniority) {
+      missingFields.push("Seniority Level");
+    }
+    
+    if (missingFields.length > 0) {
+      setModal({
+        isOpen: true,
+        title: "Missing Required Fields",
+        message: `Please fill in the following required fields:\n\n• ${missingFields.join('\n• ')}`,
+        type: "warning"
+      });
       return;
     }
 
@@ -259,7 +316,11 @@ export default function CreateRolePage() {
       }
     } catch (error) {
       console.error("Error saving role:", error);
-      alert("Error saving role. Please try again.");
+      showModal(
+        "Error",
+        "Error saving role. Please try again.",
+        "error"
+      );
     } finally {
       setSaving(false);
     }
@@ -412,6 +473,15 @@ export default function CreateRolePage() {
           </div>
         </div>
       </div>
+
+      {/* Modal */}
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+      />
     </div>
   );
 }

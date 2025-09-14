@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { doc, updateDoc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc, collection, collectionGroup, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import Link from "next/link";
@@ -133,7 +133,7 @@ export default function CompanySetupPage() {
           
           if (!querySnapshot.empty) {
             const orgDoc = querySnapshot.docs[0];
-            const orgData = orgDoc.data();
+            const orgData = orgDoc.data() as { name?: string; legalName?: string };
             const existingName = orgData?.name || orgData?.legalName || "";
             
             if (existingName) {
@@ -419,29 +419,25 @@ export default function CompanySetupPage() {
 
     try {
       // Find the organization document for this user
-      const orgId = user.uid; // Assuming orgId is same as admin user ID for now
+      // Query for organization where user is the creator (no composite index needed)
+      console.log("Looking for organization for user:", user.uid);
+      const orgsRef = collection(db, "organizations");
+      const q = query(orgsRef, where("createdBy", "==", user.uid));
+      const querySnapshot = await getDocs(q);
       
-      // Check if organization document exists, create if it doesn't
-      const orgRef = doc(db, "organizations", orgId);
-      const orgDoc = await getDoc(orgRef);
+      console.log("Query results:", querySnapshot.docs.length);
       
-      if (!orgDoc.exists()) {
-        // Create the organization document first
-        await setDoc(orgRef, {
-          name: companyInfo.displayName || companyInfo.legalName,
-          createdBy: user.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        
-        // Create admin user membership
-        await setDoc(doc(db, "organizations", orgId, "users", user.uid), {
-          uid: user.uid,
-          email: user.email || "",
-          role: "admin",
-          createdAt: serverTimestamp(),
-        });
+      if (querySnapshot.empty) {
+        console.error("No organization found for user:", user.uid);
+        throw new Error("No organization found for this user. Please contact support.");
       }
+      
+      const orgDoc = querySnapshot.docs[0];
+      const orgId = orgDoc.id;
+      console.log("Found organization ID:", orgId);
+      
+      const orgRef = doc(db, "organizations", orgId);
+      console.log("Organization reference:", orgRef.path);
       
       // Update organization document with all collected data
       await updateDoc(orgRef, {
@@ -479,6 +475,7 @@ export default function CompanySetupPage() {
         setupCompletedAt: new Date()
       });
 
+      console.log("Organization updated successfully, redirecting to /admin...");
       // Redirect to admin dashboard
       router.push("/admin");
     } catch (err) {
