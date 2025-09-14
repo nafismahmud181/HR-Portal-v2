@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, getDocs, query, where } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
 import { Role, RoleFilter, RoleAnalytics } from "@/types/role";
+import Modal from "@/components/Modal";
 
 interface Department {
   id: string;
@@ -32,6 +33,23 @@ export default function RolesPage() {
     category: "All",
     level: "All",
     status: "All"
+  });
+  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "warning" | "info";
+    onConfirm?: () => void;
+    onCancel?: () => void;
+    showCancel?: boolean;
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info"
   });
 
   useEffect(() => {
@@ -128,39 +146,124 @@ export default function RolesPage() {
 
     rolesList.forEach(role => {
       // Count by department
-      role.departmentIds.forEach(deptId => {
-        analytics.rolesByDepartment[deptId] = (analytics.rolesByDepartment[deptId] || 0) + 1;
-      });
+      if (role.departmentIds && Array.isArray(role.departmentIds)) {
+        role.departmentIds.forEach(deptId => {
+          analytics.rolesByDepartment[deptId] = (analytics.rolesByDepartment[deptId] || 0) + 1;
+        });
+      }
 
       // Count by category
-      analytics.rolesByCategory[role.category] = (analytics.rolesByCategory[role.category] || 0) + 1;
+      if (role.category) {
+        analytics.rolesByCategory[role.category] = (analytics.rolesByCategory[role.category] || 0) + 1;
+      }
 
       // Calculate average salary by level
-      const avgSalary = (role.compensation.salaryRange.min + role.compensation.salaryRange.max) / 2;
-      analytics.averageSalaryByLevel[role.level.toString()] = 
-        (analytics.averageSalaryByLevel[role.level.toString()] || 0) + avgSalary;
+      if (role.compensation && role.compensation.salaryRange && 
+          typeof role.compensation.salaryRange.min === 'number' && 
+          typeof role.compensation.salaryRange.max === 'number') {
+        const avgSalary = (role.compensation.salaryRange.min + role.compensation.salaryRange.max) / 2;
+        analytics.averageSalaryByLevel[role.level.toString()] = 
+          (analytics.averageSalaryByLevel[role.level.toString()] || 0) + avgSalary;
+      }
     });
 
     // Calculate final averages
     Object.keys(analytics.averageSalaryByLevel).forEach(level => {
-      const count = rolesList.filter(r => r.level.toString() === level).length;
-      analytics.averageSalaryByLevel[level] = analytics.averageSalaryByLevel[level] / count;
+      const count = rolesList.filter(r => r.level && r.level.toString() === level).length;
+      if (count > 0) {
+        analytics.averageSalaryByLevel[level] = analytics.averageSalaryByLevel[level] / count;
+      }
     });
 
     setAnalytics(analytics);
   };
 
+  const showModal = (title: string, message: string, type: "success" | "error" | "warning" | "info" = "info", options?: {
+    onConfirm?: () => void;
+    onCancel?: () => void;
+    showCancel?: boolean;
+    confirmText?: string;
+    cancelText?: string;
+  }) => {
+    setModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      ...options
+    });
+  };
+
+  const closeModal = () => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleDeleteRole = (roleId: string, roleTitle: string) => {
+    showModal(
+      "Delete Role",
+      `Are you sure you want to delete the role "${roleTitle}"? This action cannot be undone.`,
+      "warning",
+      {
+        showCancel: true,
+        confirmText: "Delete",
+        cancelText: "Cancel",
+        onConfirm: async () => {
+          setDeletingRoleId(roleId);
+          try {
+            // Find the organization ID
+            const cg = collectionGroup(db, "users");
+            const q = query(cg, where("uid", "==", auth.currentUser?.uid));
+            const snap = await getDocs(q);
+            const parentOrg = snap.docs[0].ref.parent.parent;
+            const orgId = parentOrg ? parentOrg.id : null;
+
+            if (orgId) {
+              await deleteDoc(doc(db, "organizations", orgId, "roles", roleId));
+              
+              // Update local state
+              setRoles(prevRoles => prevRoles.filter(role => role.id !== roleId));
+              
+              // Recalculate analytics
+              const updatedRoles = roles.filter(role => role.id !== roleId);
+              calculateAnalytics(updatedRoles);
+              
+              closeModal();
+              showModal(
+                "Success",
+                "Role deleted successfully!",
+                "success"
+              );
+            }
+          } catch (error) {
+            console.error("Error deleting role:", error);
+            closeModal();
+            showModal(
+              "Error",
+              "Error deleting role. Please try again.",
+              "error"
+            );
+          } finally {
+            setDeletingRoleId(null);
+          }
+        },
+        onCancel: () => {
+          closeModal();
+        }
+      }
+    );
+  };
+
   const filteredRoles = roles.filter(role => {
     const matchesSearch = filters.search === "" || 
-      role.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-      role.code.toLowerCase().includes(filters.search.toLowerCase()) ||
-      role.description.toLowerCase().includes(filters.search.toLowerCase());
+      (role.title && role.title.toLowerCase().includes(filters.search.toLowerCase())) ||
+      (role.code && role.code.toLowerCase().includes(filters.search.toLowerCase())) ||
+      (role.description && role.description.toLowerCase().includes(filters.search.toLowerCase()));
     
     const matchesDepartment = filters.department === "All" || 
-      role.departmentIds.includes(filters.department);
+      (role.departmentIds && Array.isArray(role.departmentIds) && role.departmentIds.includes(filters.department));
     
     const matchesCategory = filters.category === "All" || role.category === filters.category;
-    const matchesLevel = filters.level === "All" || role.level.toString() === filters.level;
+    const matchesLevel = filters.level === "All" || (role.level && role.level.toString() === filters.level);
     const matchesStatus = filters.status === "All" || role.status === filters.status;
     
     return matchesSearch && matchesDepartment && matchesCategory && matchesLevel && matchesStatus;
@@ -322,16 +425,20 @@ export default function RolesPage() {
 
               <div className="space-y-2 mb-4">
                 <div className="text-[12px] text-[#6b7280]">
-                  <span className="font-medium">Level:</span> {role.level} ({role.seniority})
+                  <span className="font-medium">Level:</span> {role.level || 'N/A'} ({role.seniority || 'N/A'})
                 </div>
                 <div className="text-[12px] text-[#6b7280]">
-                  <span className="font-medium">Primary Department:</span> {getDepartmentName(role.primaryDepartmentId)}
+                  <span className="font-medium">Primary Department:</span> {getDepartmentName(role.primaryDepartmentId || '')}
                 </div>
                 <div className="text-[12px] text-[#6b7280]">
-                  <span className="font-medium">Employees:</span> {role.employeeCount}
+                  <span className="font-medium">Employees:</span> {role.employeeCount || 0}
                 </div>
                 <div className="text-[12px] text-[#6b7280]">
-                  <span className="font-medium">Salary Range:</span> {role.compensation.salaryRange.currency} {role.compensation.salaryRange.min.toLocaleString()} - {role.compensation.salaryRange.max.toLocaleString()}
+                  <span className="font-medium">Salary Range:</span> {
+                    role.compensation && role.compensation.salaryRange 
+                      ? `${role.compensation.salaryRange.currency || 'USD'} ${role.compensation.salaryRange.min?.toLocaleString() || '0'} - ${role.compensation.salaryRange.max?.toLocaleString() || '0'}`
+                      : 'Not specified'
+                  }
                 </div>
               </div>
 
@@ -360,6 +467,23 @@ export default function RolesPage() {
                   >
                     Edit
                   </Link>
+                  <button
+                    onClick={() => handleDeleteRole(role.id, role.title)}
+                    disabled={deletingRoleId === role.id}
+                    className="rounded-md border border-[#ef4444] px-2 py-1 text-[12px] text-[#ef4444] hover:bg-[#fef2f2] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    {deletingRoleId === role.id ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Deleting...
+                      </>
+                    ) : (
+                      "Delete"
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -391,6 +515,20 @@ export default function RolesPage() {
           </div>
         )}
       </div>
+
+      {/* Modal */}
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        confirmText={modal.confirmText}
+        cancelText={modal.cancelText}
+        onConfirm={modal.onConfirm}
+        onCancel={modal.onCancel}
+        showCancel={modal.showCancel}
+      />
     </div>
   );
 }
