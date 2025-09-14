@@ -79,12 +79,25 @@ export default function InviteEmployeePage() {
         return;
       }
       try {
-        const rolesCol = collection(db, "organizations", orgId, "departments", departmentId, "roles");
+        const rolesCol = collection(db, "organizations", orgId, "roles");
         const rolesSnap = await getDocs(rolesCol);
-        const list: Array<{ id: string; name: string }> = rolesSnap.docs.map((d) => {
-          const data = d.data() as { name?: string };
-          return { id: d.id, name: data?.name ?? d.id };
-        });
+        const list: Array<{ id: string; name: string }> = rolesSnap.docs
+          .map((d) => {
+            const data = d.data() as { title?: string; departmentIds?: string[]; primaryDepartmentId?: string; status?: string };
+            return { 
+              id: d.id, 
+              name: data?.title ?? d.id,
+              departmentIds: data?.departmentIds ?? [],
+              primaryDepartmentId: data?.primaryDepartmentId,
+              status: data?.status ?? "draft"
+            };
+          })
+          .filter((role) => 
+            (role.departmentIds.includes(departmentId) || 
+            role.primaryDepartmentId === departmentId) &&
+            role.status === "active"
+          )
+          .map((role) => ({ id: role.id, name: role.name }));
         setRoles(list);
       } catch (e) {
         console.error("Failed to load roles", e);

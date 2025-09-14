@@ -73,11 +73,12 @@ service cloud.firestore {
       match /departments/{departmentId} {
         allow read: if isOrgMember(orgId);
         allow create, update, delete: if isOrgAdmin(orgId);
+      }
 
-        match /roles/{roleId} {
-          allow read: if isOrgMember(orgId);
-          allow create, update, delete: if isOrgAdmin(orgId);
-        }
+      // Roles subcollection - only accessible within the organization
+      match /roles/{roleId} {
+        allow read: if isOrgMember(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId);
       }
 
       // Leave Requests - only accessible within the organization
@@ -97,6 +98,21 @@ service cloud.firestore {
           allow read: if isOrgAdmin(orgId) || (isOrgMember(orgId) && request.auth.uid == employeeId);
           allow create, update, delete: if isOrgAdmin(orgId);
         }
+      }
+
+      // Change Logs - audit trail for organizational changes
+      match /changeLogs/{logId} {
+        allow read: if isOrgMember(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId);
+      }
+
+      // Notifications - employee notifications
+      match /notifications/{notificationId} {
+        allow read: if isOrgMember(orgId) && (
+          isOrgAdmin(orgId) || 
+          request.auth.uid == resource.data.employeeId
+        );
+        allow create, update, delete: if isOrgAdmin(orgId);
       }
     }
 
