@@ -16,6 +16,7 @@ interface FormData {
   workLocation: "Office" | "Remote" | "Hybrid" | "Field Work";
   managerId: string;
   startDate: string;
+  salary: string;
   orgRole: UserType;
 }
 
@@ -24,6 +25,24 @@ interface Employee {
   name: string;
   department: string;
   title: string;
+}
+
+interface InviteData {
+  email: string;
+  name: string;
+  departmentId: string;
+  departmentName: string | null;
+  roleId: string;
+  roleName: string | null;
+  orgRole: UserType;
+  createdAt: ReturnType<typeof serverTimestamp>;
+  employeeId?: string;
+  employeeType?: FormData["employeeType"];
+  workLocation?: FormData["workLocation"];
+  managerId?: string | null;
+  managerName?: string | null;
+  startDate?: string;
+  salary?: string;
 }
 
 export default function InviteEmployeePage() {
@@ -38,6 +57,7 @@ export default function InviteEmployeePage() {
     workLocation: "Office",
     managerId: "",
     startDate: "",
+    salary: "",
     orgRole: "employee"
   });
   const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
@@ -203,7 +223,7 @@ export default function InviteEmployeePage() {
     }
     // Validate based on active tab
     if (activeTab === "employee") {
-      if (!formData.fullName || !formData.email || !formData.employeeId || !formData.departmentId || !formData.roleId || !formData.employeeType || !formData.workLocation || !formData.startDate) {
+      if (!formData.fullName || !formData.email || !formData.employeeId || !formData.departmentId || !formData.roleId || !formData.employeeType || !formData.workLocation || !formData.startDate || !formData.salary) {
         console.log("Employee validation failed:", { 
           fullName: !!formData.fullName, 
           email: !!formData.email, 
@@ -212,7 +232,8 @@ export default function InviteEmployeePage() {
           roleId: !!formData.roleId, 
           employeeType: !!formData.employeeType, 
           workLocation: !!formData.workLocation, 
-          startDate: !!formData.startDate 
+          startDate: !!formData.startDate,
+          salary: !!formData.salary
         });
         setStatus("error");
         setMessage("Please fill all required fields.");
@@ -247,7 +268,7 @@ export default function InviteEmployeePage() {
       const selectedManager = employees.find((e) => e.id === formData.managerId);
       
       // Step 1: Create invite record
-      const inviteData: any = {
+      const inviteData: InviteData = {
         email: inviteEmail,
         name: formData.fullName,
         departmentId: formData.departmentId,
@@ -266,6 +287,7 @@ export default function InviteEmployeePage() {
         inviteData.managerId = formData.managerId || null;
         inviteData.managerName = selectedManager?.name ?? null;
         inviteData.startDate = formData.startDate;
+        inviteData.salary = formData.salary;
       }
 
       await setDoc(doc(db, "organizations", orgId, "invites", inviteEmail), inviteData);
@@ -311,6 +333,7 @@ export default function InviteEmployeePage() {
           workLocation: "Office",
           managerId: "",
           startDate: "",
+          salary: "",
           orgRole: activeTab
         });
         setStatus("idle");
@@ -531,6 +554,21 @@ export default function InviteEmployeePage() {
                     </select>
                   </div>
                 </div>
+                <div className="mt-4">
+                  <label htmlFor="salary" className="block text-sm font-medium text-gray-700 mb-1">
+                    Salary *
+                  </label>
+                  <input
+                    id="salary"
+                    type="text"
+                    required
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    placeholder="e.g., $50,000 or 50000"
+                    value={formData.salary}
+                    onChange={(e) => updateFormData("salary", e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter annual salary (can include currency symbol)</p>
+                </div>
               </div>
 
               {/* Manager/Supervisor */}
@@ -553,7 +591,7 @@ export default function InviteEmployeePage() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Search by name functionality. Shows: "Name - Department - Title"</p>
+                  <p className="text-xs text-gray-500 mt-1">Search by name functionality. Shows: &quot;Name - Department - Title&quot;</p>
                 </div>
               </div>
 
@@ -687,7 +725,7 @@ export default function InviteEmployeePage() {
               disabled={status === 'sending' || (activeTab === "employee" ? 
                 !formData.fullName || !formData.email || !formData.employeeId || 
                 !formData.departmentId || !formData.roleId || !formData.employeeType || 
-                !formData.workLocation || !formData.startDate :
+                !formData.workLocation || !formData.startDate || !formData.salary :
                 !formData.fullName || !formData.email || !formData.departmentId || !formData.roleId
               )}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
@@ -749,6 +787,7 @@ export default function InviteEmployeePage() {
                     workLocation: "Office",
                     managerId: "",
                     startDate: "",
+                    salary: "",
                     orgRole: activeTab
                   });
                   setStatus("idle");
@@ -836,6 +875,9 @@ export default function InviteEmployeePage() {
                             formData.startDate ? new Date(formData.startDate).toLocaleDateString() : "Not selected"
                           }
                         </div>
+                        <div>
+                          <span className="font-medium">Salary:</span> {formData.salary || "Not specified"}
+                        </div>
                       </div>
                     </div>
 
@@ -872,7 +914,7 @@ export default function InviteEmployeePage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${
-                            formData.employeeType && formData.workLocation && formData.startDate ? "bg-green-500" : "bg-gray-300"
+                            formData.employeeType && formData.workLocation && formData.startDate && formData.salary ? "bg-green-500" : "bg-gray-300"
                           }`}></div>
                           <span className="text-xs text-gray-600">Employment Details</span>
                         </div>
@@ -903,7 +945,7 @@ export default function InviteEmployeePage() {
                     disabled={status === 'sending' || (activeTab === "employee" ? 
                       !formData.fullName || !formData.email || !formData.employeeId || 
                       !formData.departmentId || !formData.roleId || !formData.employeeType || 
-                      !formData.workLocation || !formData.startDate :
+                      !formData.workLocation || !formData.startDate || !formData.salary :
                       !formData.fullName || !formData.email || !formData.departmentId || !formData.roleId
                     )}
                     onClick={() => {
