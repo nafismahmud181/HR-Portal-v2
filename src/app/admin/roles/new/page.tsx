@@ -6,7 +6,7 @@ import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, collectionGroup, getDocs, query, where, addDoc } from "firebase/firestore";
-import { Role, SkillRequirement, EducationalRequirement, ExperienceRequirement, Compensation, ReportingStructure, PerformanceMetric, CareerProgression, TrainingRequirement } from "@/types/role";
+import { Role, SkillRequirement } from "@/types/role";
 import Modal from "@/components/Modal";
 
 interface Department {
@@ -169,14 +169,14 @@ export default function CreateRolePage() {
     return `${initials.toUpperCase()}${randomNum}`;
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | string[]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
 
     // Auto-generate role code when title changes
-    if (field === "title" && value) {
+    if (field === "title" && typeof value === "string") {
       setFormData(prev => ({
         ...prev,
         code: generateRoleCode(value)
@@ -184,14 +184,34 @@ export default function CreateRolePage() {
     }
   };
 
-  const handleNestedInputChange = (parentField: string, childField: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [parentField]: {
-        ...prev[parentField as keyof Role],
-        [childField]: value
-      }
-    }));
+  const handleNestedInputChange = (parentField: string, childField: string, value: string | number | boolean | string[]) => {
+    setFormData(prev => {
+      const currentParent = prev[parentField as keyof Role] as Record<string, unknown> | undefined;
+      return {
+        ...prev,
+        [parentField]: {
+          ...(currentParent || {}),
+          [childField]: value
+        }
+      };
+    });
+  };
+
+  const handleNestedObjectChange = (parentField: string, childField: string, nestedField: string, value: string | number) => {
+    setFormData(prev => {
+      const currentParent = prev[parentField as keyof Role] as Record<string, unknown> | undefined;
+      const currentChild = currentParent?.[childField] as Record<string, unknown> | undefined;
+      return {
+        ...prev,
+        [parentField]: {
+          ...(currentParent || {}),
+          [childField]: {
+            ...(currentChild || {}),
+            [nestedField]: value
+          }
+        }
+      };
+    });
   };
 
   const addResponsibility = () => {
@@ -227,7 +247,7 @@ export default function CreateRolePage() {
     }));
   };
 
-  const updateSkill = (index: number, field: string, value: any) => {
+  const updateSkill = (index: number, field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       requiredSkills: prev.requiredSkills?.map((skill, i) => 
@@ -256,7 +276,7 @@ export default function CreateRolePage() {
     setModal(prev => ({ ...prev, isOpen: false }));
   };
 
-  const handleSave = async (status?: "draft" | "active") => {
+  const handleSave = async (status: "draft" | "active" = "draft") => {
     // Check for required fields and provide specific error messages
     const missingFields = [];
     
@@ -412,8 +432,8 @@ export default function CreateRolePage() {
           {currentStep === 3 && (
             <CompensationBenefitsStep 
               formData={formData}
-              onInputChange={handleInputChange}
               onNestedInputChange={handleNestedInputChange}
+              onNestedObjectChange={handleNestedObjectChange}
             />
           )}
           
@@ -421,15 +441,14 @@ export default function CreateRolePage() {
             <ReportingStructureStep 
               formData={formData}
               employees={employees}
-              onInputChange={handleInputChange}
               onNestedInputChange={handleNestedInputChange}
+              onNestedObjectChange={handleNestedObjectChange}
             />
           )}
           
           {currentStep === 5 && (
             <PerformanceDevelopmentStep 
               formData={formData}
-              onInputChange={handleInputChange}
               onNestedInputChange={handleNestedInputChange}
             />
           )}
@@ -447,7 +466,7 @@ export default function CreateRolePage() {
           
           <div className="flex gap-3">
             <button
-              onClick={handleSave}
+              onClick={() => handleSave("draft")}
               disabled={saving}
               className="px-4 py-2 bg-[#1f2937] text-white rounded-md text-[14px] font-medium hover:bg-[#111827] disabled:opacity-50"
             >
@@ -487,7 +506,14 @@ export default function CreateRolePage() {
 }
 
 // Step Components
-function BasicInformationStep({ formData, departments, onInputChange, onNestedInputChange }: any) {
+interface BasicInformationStepProps {
+  formData: Partial<Role>;
+  departments: Department[];
+  onInputChange: (field: string, value: string | number | string[]) => void;
+  onNestedInputChange: (parentField: string, childField: string, value: string | number | boolean | string[]) => void;
+}
+
+function BasicInformationStep({ formData, departments, onInputChange }: BasicInformationStepProps) {
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] font-semibold">Basic Role Information</h2>
@@ -576,7 +602,7 @@ function BasicInformationStep({ formData, departments, onInputChange, onNestedIn
       <div>
         <label className="block text-[14px] font-medium mb-2">Additional Departments</label>
         <div className="space-y-2">
-          {departments.map((dept: Department) => (
+          {departments.map((dept) => (
             <label key={dept.id} className="flex items-center">
               <input
                 type="checkbox"
@@ -599,7 +625,19 @@ function BasicInformationStep({ formData, departments, onInputChange, onNestedIn
   );
 }
 
-function DescriptionRequirementsStep({ formData, onInputChange, onNestedInputChange, addResponsibility, updateResponsibility, removeResponsibility, addSkill, updateSkill, removeSkill }: any) {
+interface DescriptionRequirementsStepProps {
+  formData: Partial<Role>;
+  onInputChange: (field: string, value: string | number | string[]) => void;
+  onNestedInputChange: (parentField: string, childField: string, value: string | number | boolean | string[]) => void;
+  addResponsibility: () => void;
+  updateResponsibility: (index: number, value: string) => void;
+  removeResponsibility: (index: number) => void;
+  addSkill: () => void;
+  updateSkill: (index: number, field: string, value: string | boolean) => void;
+  removeSkill: (index: number) => void;
+}
+
+function DescriptionRequirementsStep({ formData, onInputChange, onNestedInputChange, addResponsibility, updateResponsibility, removeResponsibility, addSkill, updateSkill, removeSkill }: DescriptionRequirementsStepProps) {
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] font-semibold">Role Description & Requirements</h2>
@@ -647,7 +685,7 @@ function DescriptionRequirementsStep({ formData, onInputChange, onNestedInputCha
       <div>
         <label className="block text-[14px] font-medium mb-2">Required Skills</label>
         <div className="space-y-3">
-          {formData.requiredSkills?.map((skill: any, index: number) => (
+          {formData.requiredSkills?.map((skill: SkillRequirement, index: number) => (
             <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <input
                 type="text"
@@ -713,8 +751,8 @@ function DescriptionRequirementsStep({ formData, onInputChange, onNestedInputCha
           >
             <option value="high_school">High School</option>
             <option value="associate">Associate Degree</option>
-            <option value="bachelor">Bachelor's Degree</option>
-            <option value="master">Master's Degree</option>
+            <option value="bachelor">Bachelor&apos;s Degree</option>
+            <option value="master">Master&apos;s Degree</option>
             <option value="phd">PhD</option>
           </select>
         </div>
@@ -734,7 +772,13 @@ function DescriptionRequirementsStep({ formData, onInputChange, onNestedInputCha
   );
 }
 
-function CompensationBenefitsStep({ formData, onInputChange, onNestedInputChange }: any) {
+interface CompensationBenefitsStepProps {
+  formData: Partial<Role>;
+  onNestedInputChange: (parentField: string, childField: string, value: string | number | boolean | string[]) => void;
+  onNestedObjectChange: (parentField: string, childField: string, nestedField: string, value: string | number) => void;
+}
+
+function CompensationBenefitsStep({ formData, onNestedInputChange, onNestedObjectChange }: CompensationBenefitsStepProps) {
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] font-semibold">Compensation & Benefits</h2>
@@ -745,10 +789,7 @@ function CompensationBenefitsStep({ formData, onInputChange, onNestedInputChange
           <input
             type="number"
             value={formData.compensation?.salaryRange?.min || 0}
-            onChange={(e) => onNestedInputChange("compensation", "salaryRange", {
-              ...formData.compensation?.salaryRange,
-              min: parseInt(e.target.value)
-            })}
+            onChange={(e) => onNestedObjectChange("compensation", "salaryRange", "min", parseInt(e.target.value))}
             min="0"
             className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
           />
@@ -759,10 +800,7 @@ function CompensationBenefitsStep({ formData, onInputChange, onNestedInputChange
           <input
             type="number"
             value={formData.compensation?.salaryRange?.max || 0}
-            onChange={(e) => onNestedInputChange("compensation", "salaryRange", {
-              ...formData.compensation?.salaryRange,
-              max: parseInt(e.target.value)
-            })}
+            onChange={(e) => onNestedObjectChange("compensation", "salaryRange", "max", parseInt(e.target.value))}
             min="0"
             className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
           />
@@ -772,10 +810,7 @@ function CompensationBenefitsStep({ formData, onInputChange, onNestedInputChange
           <label className="block text-[14px] font-medium mb-2">Currency</label>
           <select
             value={formData.compensation?.salaryRange?.currency || "USD"}
-            onChange={(e) => onNestedInputChange("compensation", "salaryRange", {
-              ...formData.compensation?.salaryRange,
-              currency: e.target.value
-            })}
+            onChange={(e) => onNestedObjectChange("compensation", "salaryRange", "currency", e.target.value)}
             className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]"
           >
             <option value="USD">USD</option>
@@ -790,10 +825,7 @@ function CompensationBenefitsStep({ formData, onInputChange, onNestedInputChange
           <label className="block text-[14px] font-medium mb-2">Pay Frequency</label>
           <select
             value={formData.compensation?.salaryRange?.frequency || "annually"}
-            onChange={(e) => onNestedInputChange("compensation", "salaryRange", {
-              ...formData.compensation?.salaryRange,
-              frequency: e.target.value
-            })}
+            onChange={(e) => onNestedObjectChange("compensation", "salaryRange", "frequency", e.target.value)}
             className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]"
           >
             <option value="hourly">Hourly</option>
@@ -844,7 +876,14 @@ function CompensationBenefitsStep({ formData, onInputChange, onNestedInputChange
   );
 }
 
-function ReportingStructureStep({ formData, employees, onInputChange, onNestedInputChange }: any) {
+interface ReportingStructureStepProps {
+  formData: Partial<Role>;
+  employees: Employee[];
+  onNestedInputChange: (parentField: string, childField: string, value: string | number | boolean | string[]) => void;
+  onNestedObjectChange: (parentField: string, childField: string, nestedField: string, value: string | number) => void;
+}
+
+function ReportingStructureStep({ formData, employees, onNestedInputChange, onNestedObjectChange }: ReportingStructureStepProps) {
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] font-semibold">Reporting Structure</h2>
@@ -889,10 +928,7 @@ function ReportingStructureStep({ formData, employees, onInputChange, onNestedIn
           <input
             type="number"
             value={formData.reportingStructure?.teamSize?.min || 0}
-            onChange={(e) => onNestedInputChange("reportingStructure", "teamSize", {
-              ...formData.reportingStructure?.teamSize,
-              min: parseInt(e.target.value)
-            })}
+            onChange={(e) => onNestedObjectChange("reportingStructure", "teamSize", "min", parseInt(e.target.value))}
             min="0"
             className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
           />
@@ -903,10 +939,7 @@ function ReportingStructureStep({ formData, employees, onInputChange, onNestedIn
           <input
             type="number"
             value={formData.reportingStructure?.teamSize?.max || 0}
-            onChange={(e) => onNestedInputChange("reportingStructure", "teamSize", {
-              ...formData.reportingStructure?.teamSize,
-              max: parseInt(e.target.value)
-            })}
+            onChange={(e) => onNestedObjectChange("reportingStructure", "teamSize", "max", parseInt(e.target.value))}
             min="0"
             className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
           />
@@ -916,7 +949,12 @@ function ReportingStructureStep({ formData, employees, onInputChange, onNestedIn
   );
 }
 
-function PerformanceDevelopmentStep({ formData, onInputChange, onNestedInputChange }: any) {
+interface PerformanceDevelopmentStepProps {
+  formData: Partial<Role>;
+  onNestedInputChange: (parentField: string, childField: string, value: string | number | boolean | string[]) => void;
+}
+
+function PerformanceDevelopmentStep({ formData, onNestedInputChange }: PerformanceDevelopmentStepProps) {
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] font-semibold">Performance & Development</h2>

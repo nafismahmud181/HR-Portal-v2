@@ -112,44 +112,49 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     { href: "/employee/help", label: "Help & Support" },
   ];
 
+  // Check if we're on the onboarding page
+  const isOnboardingPage = pathname === "/employee/onboarding";
+
   return (
-    <div className="min-h-screen bg-[#ffffff] text-[#1a1a1a] grid grid-cols-1 md:grid-cols-[260px_1fr]">
-      <aside className="border-r border-[#e5e7eb] p-4 md:p-6">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
-          <span className="text-[16px] font-semibold">HRMSTech</span>
-        </Link>
-        <nav className="mt-6 space-y-1">
-          {nav.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`block px-3 py-2 rounded-md text-[14px] ${active ? "bg-[#f97316]/10 text-[#1f2937] border border-[#f97316]/30" : "text-[#374151] hover:bg-[#f9fafb] border border-transparent"}`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="mt-6 pt-6 border-t border-[#e5e7eb]">
-          <button
-            type="button"
-            className="w-full text-left px-3 py-2 rounded-md text-[14px] text-[#374151] border border-[#d1d5db] hover:bg-[#f9fafb]"
-            onClick={async () => {
-              try {
-                await signOut(auth);
-              } finally {
-                router.replace("/login");
-              }
-            }}
-          >
-            Log out
-          </button>
-        </div>
-      </aside>
-      <main>{children}</main>
+    <div className={`min-h-screen bg-[#ffffff] text-[#1a1a1a] ${isOnboardingPage ? 'grid grid-cols-1' : 'grid grid-cols-1 md:grid-cols-[260px_1fr]'}`}>
+      {!isOnboardingPage && (
+        <aside className="border-r border-[#e5e7eb] p-4 md:p-6">
+          <Link href="/" className="inline-flex items-center gap-2">
+            <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
+            <span className="text-[16px] font-semibold">HRMSTech</span>
+          </Link>
+          <nav className="mt-6 space-y-1">
+            {nav.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`block px-3 py-2 rounded-md text-[14px] ${active ? "bg-[#f97316]/10 text-[#1f2937] border border-[#f97316]/30" : "text-[#374151] hover:bg-[#f9fafb] border border-transparent"}`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="mt-6 pt-6 border-t border-[#e5e7eb]">
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 rounded-md text-[14px] text-[#374151] border border-[#d1d5db] hover:bg-[#f9fafb]"
+              onClick={async () => {
+                try {
+                  await signOut(auth);
+                } finally {
+                  router.replace("/login");
+                }
+              }}
+            >
+              Log out
+            </button>
+          </div>
+        </aside>
+      )}
+      <main className={isOnboardingPage ? "w-full" : ""}>{children}</main>
     </div>
   );
 }

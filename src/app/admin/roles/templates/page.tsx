@@ -410,7 +410,7 @@ export default function RoleTemplatesPage() {
           roleData: {
             title: "Sales Manager",
             code: "SALES_MGR",
-            category: "specialized",
+            category: "professional",
             level: 6,
             seniority: "senior",
             description: "Lead sales team, develop sales strategies, and drive revenue growth.",

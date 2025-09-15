@@ -117,44 +117,6 @@ export default function EditDepartmentPage() {
   const [originalData, setOriginalData] = useState<Department | null>(null);
   const [formData, setFormData] = useState<Partial<Department>>({});
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-      try {
-        const cg = collectionGroup(db, "users");
-        const q = query(cg, where("uid", "==", user.uid));
-        const snap = await getDocs(q);
-        if (snap.empty) {
-          router.replace("/login");
-          return;
-        }
-        const role = (snap.docs[0].data() as { role?: string }).role;
-        if (role !== "admin") {
-          router.replace("/login");
-          return;
-        }
-        
-        const parentOrg = snap.docs[0].ref.parent.parent;
-        const foundOrgId = parentOrg ? parentOrg.id : null;
-        setOrgId(foundOrgId);
-        
-        if (foundOrgId) {
-          await loadDepartment(foundOrgId);
-          await loadDepartments(foundOrgId);
-          await loadEmployees(foundOrgId);
-          await loadChangeLogs(foundOrgId);
-        }
-        setLoading(false);
-      } catch {
-        router.replace("/login");
-      }
-    });
-    return () => unsub();
-  }, [router, departmentId, loadDepartment, loadDepartments, loadEmployees, loadChangeLogs]);
-
   const loadDepartment = useCallback(async (orgId: string) => {
     try {
       const deptRef = doc(db, "organizations", orgId, "departments", departmentId);
@@ -200,7 +162,7 @@ export default function EditDepartmentPage() {
     } catch (error) {
       console.error("Error loading employees:", error);
     }
-  }, [department]);
+  }, [departmentId]);
 
   const loadChangeLogs = useCallback(async (orgId: string) => {
     try {
@@ -219,6 +181,44 @@ export default function EditDepartmentPage() {
     }
   }, [departmentId]);
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      try {
+        const cg = collectionGroup(db, "users");
+        const q = query(cg, where("uid", "==", user.uid));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          router.replace("/login");
+          return;
+        }
+        const role = (snap.docs[0].data() as { role?: string }).role;
+        if (role !== "admin") {
+          router.replace("/login");
+          return;
+        }
+        
+        const parentOrg = snap.docs[0].ref.parent.parent;
+        const foundOrgId = parentOrg ? parentOrg.id : null;
+        setOrgId(foundOrgId);
+        
+        if (foundOrgId) {
+          await loadDepartment(foundOrgId);
+          await loadDepartments(foundOrgId);
+          await loadEmployees(foundOrgId);
+          await loadChangeLogs(foundOrgId);
+        }
+        setLoading(false);
+      } catch {
+        router.replace("/login");
+      }
+    });
+    return () => unsub();
+  }, [router, departmentId, loadDepartment, loadDepartments, loadEmployees, loadChangeLogs]);
+
   const handleInputChange = (field: string, value: string | number | boolean | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -228,7 +228,7 @@ export default function EditDepartmentPage() {
     }
 
     // Show suggestions for department name
-    if (field === "name") {
+    if (field === "name" && typeof value === "string") {
       const filtered = COMMON_DEPARTMENTS.filter(dept =>
         dept.toLowerCase().includes(value.toLowerCase())
       );
@@ -320,7 +320,7 @@ export default function EditDepartmentPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const logChanges = async (changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}>) => {
+  const logChanges = async (changes: Array<{field: string, oldValue: string | number | boolean | string[] | null, newValue: string | number | boolean | string[] | null}>) => {
     if (!orgId || !auth.currentUser) return;
 
     const batch = writeBatch(db);
@@ -343,7 +343,7 @@ export default function EditDepartmentPage() {
     await loadChangeLogs(orgId);
   };
 
-  const sendNotifications = async (changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}>) => {
+  const sendNotifications = async (changes: Array<{field: string, oldValue: string | number | boolean | string[] | null, newValue: string | number | boolean | string[] | null}>) => {
     if (!orgId || !notificationMessage) return;
 
     const notifications = departmentEmployees.map(emp => ({
@@ -419,14 +419,14 @@ export default function EditDepartmentPage() {
     setSaving(true);
     try {
       // Identify changes
-      const changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}> = [];
+      const changes: Array<{field: string, oldValue: string | number | boolean | string[] | null, newValue: string | number | boolean | string[] | null}> = [];
       
       Object.keys(formData).forEach(key => {
         if (formData[key as keyof Department] !== originalData[key as keyof Department]) {
           changes.push({
             field: key,
-            oldValue: originalData[key as keyof Department],
-            newValue: formData[key as keyof Department]
+            oldValue: originalData[key as keyof Department] ?? null,
+            newValue: formData[key as keyof Department] ?? null
           });
         }
       });
