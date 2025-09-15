@@ -153,7 +153,7 @@ export default function EditDepartmentPage() {
       }
     });
     return () => unsub();
-  }, [router, departmentId, loadDepartment, loadDepartments, loadEmployees, loadChangeLogs]);
+  }, [router, departmentId]);
 
   const loadDepartment = useCallback(async (orgId: string) => {
     try {
@@ -200,7 +200,7 @@ export default function EditDepartmentPage() {
     } catch (error) {
       console.error("Error loading employees:", error);
     }
-  }, [department]);
+  }, [departmentId]);
 
   const loadChangeLogs = useCallback(async (orgId: string) => {
     try {
@@ -228,7 +228,7 @@ export default function EditDepartmentPage() {
     }
 
     // Show suggestions for department name
-    if (field === "name") {
+    if (field === "name" && typeof value === "string") {
       const filtered = COMMON_DEPARTMENTS.filter(dept =>
         dept.toLowerCase().includes(value.toLowerCase())
       );
@@ -419,14 +419,14 @@ export default function EditDepartmentPage() {
     setSaving(true);
     try {
       // Identify changes
-      const changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}> = [];
+      const changes: Array<{field: string, oldValue: string | number | boolean | string[] | null, newValue: string | number | boolean | string[] | null}> = [];
       
       Object.keys(formData).forEach(key => {
         if (formData[key as keyof Department] !== originalData[key as keyof Department]) {
           changes.push({
             field: key,
-            oldValue: originalData[key as keyof Department],
-            newValue: formData[key as keyof Department]
+            oldValue: originalData[key as keyof Department] ?? null,
+            newValue: formData[key as keyof Department] ?? null
           });
         }
       });
