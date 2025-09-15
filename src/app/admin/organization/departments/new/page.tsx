@@ -167,7 +167,7 @@ export default function CreateDepartmentPage() {
     }
 
     // Auto-generate department code from name
-    if (field === "name" && !formData.code) {
+    if (field === "name" && !formData.code && typeof value === "string") {
       const code = value.toLowerCase()
         .replace(/[^a-z0-9\s]/g, "")
         .replace(/\s+/g, "-")
@@ -176,7 +176,7 @@ export default function CreateDepartmentPage() {
     }
 
     // Show suggestions for department name
-    if (field === "name") {
+    if (field === "name" && typeof value === "string") {
       const filtered = COMMON_DEPARTMENTS.filter(dept =>
         dept.toLowerCase().includes(value.toLowerCase())
       );

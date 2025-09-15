@@ -117,44 +117,6 @@ export default function EditDepartmentPage() {
   const [originalData, setOriginalData] = useState<Department | null>(null);
   const [formData, setFormData] = useState<Partial<Department>>({});
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-      try {
-        const cg = collectionGroup(db, "users");
-        const q = query(cg, where("uid", "==", user.uid));
-        const snap = await getDocs(q);
-        if (snap.empty) {
-          router.replace("/login");
-          return;
-        }
-        const role = (snap.docs[0].data() as { role?: string }).role;
-        if (role !== "admin") {
-          router.replace("/login");
-          return;
-        }
-        
-        const parentOrg = snap.docs[0].ref.parent.parent;
-        const foundOrgId = parentOrg ? parentOrg.id : null;
-        setOrgId(foundOrgId);
-        
-        if (foundOrgId) {
-          await loadDepartment(foundOrgId);
-          await loadDepartments(foundOrgId);
-          await loadEmployees(foundOrgId);
-          await loadChangeLogs(foundOrgId);
-        }
-        setLoading(false);
-      } catch {
-        router.replace("/login");
-      }
-    });
-    return () => unsub();
-  }, [router, departmentId]);
-
   const loadDepartment = useCallback(async (orgId: string) => {
     try {
       const deptRef = doc(db, "organizations", orgId, "departments", departmentId);
@@ -218,6 +180,44 @@ export default function EditDepartmentPage() {
       setChangeLogs([]);
     }
   }, [departmentId]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      try {
+        const cg = collectionGroup(db, "users");
+        const q = query(cg, where("uid", "==", user.uid));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          router.replace("/login");
+          return;
+        }
+        const role = (snap.docs[0].data() as { role?: string }).role;
+        if (role !== "admin") {
+          router.replace("/login");
+          return;
+        }
+        
+        const parentOrg = snap.docs[0].ref.parent.parent;
+        const foundOrgId = parentOrg ? parentOrg.id : null;
+        setOrgId(foundOrgId);
+        
+        if (foundOrgId) {
+          await loadDepartment(foundOrgId);
+          await loadDepartments(foundOrgId);
+          await loadEmployees(foundOrgId);
+          await loadChangeLogs(foundOrgId);
+        }
+        setLoading(false);
+      } catch {
+        router.replace("/login");
+      }
+    });
+    return () => unsub();
+  }, [router, departmentId, loadDepartment, loadDepartments, loadEmployees, loadChangeLogs]);
 
   const handleInputChange = (field: string, value: string | number | boolean | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -320,7 +320,7 @@ export default function EditDepartmentPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const logChanges = async (changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}>) => {
+  const logChanges = async (changes: Array<{field: string, oldValue: string | number | boolean | string[] | null, newValue: string | number | boolean | string[] | null}>) => {
     if (!orgId || !auth.currentUser) return;
 
     const batch = writeBatch(db);
@@ -343,7 +343,7 @@ export default function EditDepartmentPage() {
     await loadChangeLogs(orgId);
   };
 
-  const sendNotifications = async (changes: Array<{field: string, oldValue: string | number | boolean | null, newValue: string | number | boolean | null}>) => {
+  const sendNotifications = async (changes: Array<{field: string, oldValue: string | number | boolean | string[] | null, newValue: string | number | boolean | string[] | null}>) => {
     if (!orgId || !notificationMessage) return;
 
     const notifications = departmentEmployees.map(emp => ({
