@@ -59,14 +59,16 @@ service cloud.firestore {
         allow update: if isOrgAdmin(orgId) || (isSignedIn() && request.auth.token.email == email);
       }
 
-      // Employees subcollection - only accessible within the organization
+      // Employees subcollection - only accessible within the organization      
       match /employees/{employeeId} {
         // Only members of THIS organization can read employees
         allow read: if isOrgMember(orgId);
-        // Allow any authenticated user to create their own employee record (for invite flow)
-        allow create: if isSignedIn() && request.auth.uid == employeeId;
-        // Allow admins to manage employees in THEIR organization
-        allow update, delete: if isOrgAdmin(orgId);
+        // Allow any authenticated user to create their own employee record (for invite flow)                                                                   
+        allow create: if isSignedIn() && request.auth.uid == employeeId;        
+        // Allow employees to update their own record (for onboarding) and admins to manage all employees
+        allow update: if isOrgAdmin(orgId) || (isSignedIn() && request.auth.uid == employeeId);
+        // Only admins can delete employee records
+        allow delete: if isOrgAdmin(orgId);
       }
 
       // Departments subcollection - only accessible within the organization
