@@ -132,8 +132,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       isOpen: settingsOpen,
       setOpen: setSettingsOpen,
       items: [
-        { href: "/admin/settings", label: "Company Settings" },
-        { href: "/admin/system", label: "System Administration" },
+        { href: "/admin/settings/company", label: "Company Settings" },
+        { href: "/admin/settings/administration", label: "System Administration" },
       ]
     },
   ];
