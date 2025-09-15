@@ -134,6 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       items: [
         { href: "/admin/settings/company", label: "Company Settings" },
         { href: "/admin/settings/administration", label: "System Administration" },
+        //http://localhost:3000/admin/settings
       ]
     },
   ];
