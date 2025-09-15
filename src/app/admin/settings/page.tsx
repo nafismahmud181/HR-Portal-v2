@@ -23,17 +23,20 @@ export default function SettingsPage() {
             </p>
           </Link>
           
-          <div className="block p-6 border border-[#e5e7eb] rounded-lg bg-[#f9fafb]">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-[#6b7280] rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg">👥</span>
-              </div>
-              <h3 className="text-[16px] font-semibold text-[#6b7280]">User Management</h3>
-            </div>
-            <p className="text-[14px] text-[#6b7280]">
-              Manage user roles, permissions, and access controls. Coming soon.
-            </p>
-          </div>
+                  <Link
+                    href="/admin/settings/administration"
+                    className="block p-6 border border-[#e5e7eb] rounded-lg hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-[#f97316] rounded-lg flex items-center justify-center">
+                        <span className="text-white text-lg">👥</span>
+                      </div>
+                      <h3 className="text-[16px] font-semibold">Administration Settings</h3>
+                    </div>
+                    <p className="text-[14px] text-[#6b7280]">
+                      Manage user roles, permissions, system configuration, and integrations.
+                    </p>
+                  </Link>
           
           <div className="block p-6 border border-[#e5e7eb] rounded-lg bg-[#f9fafb]">
             <div className="flex items-center gap-3 mb-4">
