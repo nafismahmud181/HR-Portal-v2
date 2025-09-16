@@ -2,13 +2,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, doc, getDocs, query, where, updateDoc, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, query, where } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { RoleAssignment, RoleVacancy, RolePerformanceAnalytics } from "@/types/role";
 
 export default function RoleAssignmentsPage() {
   const router = useRouter();
-  const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"assignments" | "vacancies" | "analytics">("assignments");
   const [assignments, setAssignments] = useState<RoleAssignment[]>([]);
@@ -30,7 +29,6 @@ export default function RoleAssignmentsPage() {
         const snap = await getDocs(q);
         const parentOrg = snap.docs[0].ref.parent.parent;
         const foundOrgId = parentOrg ? parentOrg.id : null;
-        setOrgId(foundOrgId);
         
         if (foundOrgId) {
           await Promise.all([
@@ -47,7 +45,7 @@ export default function RoleAssignmentsPage() {
       }
     });
     return () => unsub();
-  }, [router]);
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadDepartments = useCallback(async (organizationId: string) => {
     try {
@@ -91,7 +89,7 @@ export default function RoleAssignmentsPage() {
     }
   }, []);
 
-  const loadAnalytics = useCallback(async (organizationId: string) => {
+  const loadAnalytics = useCallback(async (_organizationId: string) => { // eslint-disable-line @typescript-eslint/no-unused-vars
     try {
       // Mock analytics data - in a real app, this would come from aggregated data
       const mockAnalytics: RolePerformanceAnalytics[] = [

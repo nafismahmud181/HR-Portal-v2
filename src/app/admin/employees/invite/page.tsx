@@ -1129,7 +1129,7 @@ export default function InviteEmployeePage() {
           )}
 
           {/* Submit Button in Form */}
-          <div className="flex justify-end">
+          <div className="justify-end hidden">
             <button
               type="submit"
               disabled={status === 'sending' || (activeTab === "employee" ? 
@@ -1187,7 +1187,7 @@ export default function InviteEmployeePage() {
             )}
             
             {/* Create Another Invite Button */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-4 pt-4 border-t border-gray-200 hidden">
               <button
                 type="button"
                 className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

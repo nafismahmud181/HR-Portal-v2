@@ -1,6 +1,7 @@
 import { getApps, getApp, initializeApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, browserLocalPersistence, setPersistence, type Auth } from "firebase/auth";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 let firebaseApp: FirebaseApp;
 
@@ -25,6 +26,7 @@ setPersistence(auth, browserLocalPersistence).catch(() => {
 });
 
 const db: Firestore = getFirestore(firebaseApp);
+const storage: FirebaseStorage = getStorage(firebaseApp);
 
-export { firebaseApp, auth, db };
+export { firebaseApp, auth, db, storage };
 
