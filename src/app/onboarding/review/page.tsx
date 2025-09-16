@@ -178,6 +178,9 @@ export default function OnboardingReviewPage() {
 
   const formatAccountNumber = (accountNumber: string) => {
     if (!accountNumber) return "";
+    if (accountNumber.length <= 4) {
+      return "*".repeat(accountNumber.length);
+    }
     return "*".repeat(accountNumber.length - 4) + accountNumber.slice(-4);
   };
 
