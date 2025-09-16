@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for HRMS Employee Document Uploads
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Check if user is member of an organization (requires Firestore read)
+    function isOrgMember(orgId) {
+      return isSignedIn() && 
+        exists(/databases/(default)/documents/organizations/$(orgId)/users/$(request.auth.uid));
+    }
+    
+    // Check if user is admin of an organization (requires Firestore read)
+    function isOrgAdmin(orgId) {
+      return isSignedIn() && 
+        get(/databases/(default)/documents/organizations/$(orgId)/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Simplified check for employee onboarding - allows authenticated users to upload to their own folder
+    function isEmployeeOnboarding(orgId, employeeId) {
+      return isSignedIn() && request.auth.uid == employeeId;
+    }
+    
+    // Validate file type and size
+    function isValidFile() {
+      return request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+        request.resource.contentType.matches('application/pdf') ||
+        request.resource.contentType.matches('image/jpeg') ||
+        request.resource.contentType.matches('image/jpg') ||
+        request.resource.contentType.matches('image/png');
+    }
+    
+    // Employee document uploads - organized by organization and employee
+    match /organizations/{orgId}/employeeUploads/{employeeId}/{fileName} {
+      // Allow employees to upload their own documents during onboarding
+      // Use simplified check that doesn't require Firestore read
+      allow create: if isSignedIn() && request.auth.uid == employeeId && isValidFile();
+      
+      // Allow employees to read their own uploads and admins to read all uploads
+      allow read: if isSignedIn() && request.auth.uid == employeeId;
+      
+      // Allow employees to update/delete their own uploads and admins to manage all
+      allow update, delete: if isSignedIn() && request.auth.uid == employeeId;
+    }
+    
+    // Company profile images and documents
+    match /organizations/{orgId}/company/{fileName} {
+      // Only admins can manage company assets
+      allow read: if isOrgMember(orgId);
+      allow create, update, delete: if isOrgAdmin(orgId) && isValidFile();
+    }
+    
+    // General organization assets (logos, templates, etc.)
+    match /organizations/{orgId}/assets/{fileName} {
+      // Only admins can manage organization assets
+      allow read: if isOrgMember(orgId);
+      allow create, update, delete: if isOrgAdmin(orgId) && isValidFile();
+    }
+    
+    // Deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -14,6 +14,12 @@ service cloud.firestore {
       return isSignedIn() && 
         get(/databases/$(database)/documents/organizations/$(orgId)/users/$(request.auth.uid)).data.role == 'admin';
     }
+    
+    // Helper function to check if user is organization creator (fallback for admin access)
+    function isOrgCreator(orgId) {
+      return isSignedIn() && 
+        get(/databases/$(database)/documents/organizations/$(orgId)).data.createdBy == request.auth.uid;
+    }
 
     // Users - allow users to manage their own documents
     match /users/{userId} {
@@ -61,60 +67,60 @@ service cloud.firestore {
 
       // Employees subcollection - only accessible within the organization      
       match /employees/{employeeId} {
-        // Only members of THIS organization can read employees
-        allow read: if isOrgMember(orgId);
+        // Allow employees to read their own record, admins, and org creators to read all employees
+        allow read: if isOrgAdmin(orgId) || isOrgCreator(orgId) || (isSignedIn() && request.auth.uid == employeeId);
         // Allow any authenticated user to create their own employee record (for invite flow)                                                                   
         allow create: if isSignedIn() && request.auth.uid == employeeId;        
-        // Allow employees to update their own record (for onboarding) and admins to manage all employees
-        allow update: if isOrgAdmin(orgId) || (isSignedIn() && request.auth.uid == employeeId);
-        // Only admins can delete employee records
-        allow delete: if isOrgAdmin(orgId);
+        // Allow employees to update their own record (for onboarding), admins, and org creators to update any
+        allow update: if isOrgAdmin(orgId) || isOrgCreator(orgId) || (isSignedIn() && request.auth.uid == employeeId);
+        // Only admins and org creators can delete employee records
+        allow delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
       }
 
       // Departments subcollection - only accessible within the organization
       match /departments/{departmentId} {
-        allow read: if isOrgMember(orgId);
-        allow create, update, delete: if isOrgAdmin(orgId);
+        allow read: if isOrgMember(orgId) || isOrgCreator(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
       }
 
       // Roles subcollection - only accessible within the organization
       match /roles/{roleId} {
-        allow read: if isOrgMember(orgId);
-        allow create, update, delete: if isOrgAdmin(orgId);
+        allow read: if isOrgMember(orgId) || isOrgCreator(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
       }
 
       // Leave Requests - only accessible within the organization
       match /leaveRequests/{requestId} {
-        allow read: if isOrgMember(orgId);
+        allow read: if isOrgMember(orgId) || isOrgCreator(orgId);
         allow create: if isOrgMember(orgId) && request.resource.data.userId == request.auth.uid;
-        allow update: if isOrgAdmin(orgId) || (isOrgMember(orgId) && request.auth.uid == resource.data.userId);
-        allow delete: if isOrgAdmin(orgId);
+        allow update: if isOrgAdmin(orgId) || isOrgCreator(orgId) || (isOrgMember(orgId) && request.auth.uid == resource.data.userId);
+        allow delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
       }
 
       // Payroll - only accessible within the organization
       match /payrollRuns/{runId} {
-        allow read: if isOrgMember(orgId);
-        allow create, update, delete: if isOrgAdmin(orgId);
+        allow read: if isOrgMember(orgId) || isOrgCreator(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
 
         match /items/{employeeId} {
-          allow read: if isOrgAdmin(orgId) || (isOrgMember(orgId) && request.auth.uid == employeeId);
-          allow create, update, delete: if isOrgAdmin(orgId);
+          allow read: if isOrgAdmin(orgId) || isOrgCreator(orgId) || (isOrgMember(orgId) && request.auth.uid == employeeId);
+          allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
         }
       }
 
       // Change Logs - audit trail for organizational changes
       match /changeLogs/{logId} {
-        allow read: if isOrgMember(orgId);
-        allow create, update, delete: if isOrgAdmin(orgId);
+        allow read: if isOrgMember(orgId) || isOrgCreator(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
       }
 
       // Notifications - employee notifications
       match /notifications/{notificationId} {
-        allow read: if isOrgMember(orgId) && (
-          isOrgAdmin(orgId) || 
+        allow read: if (isOrgMember(orgId) || isOrgCreator(orgId)) && (
+          isOrgAdmin(orgId) || isOrgCreator(orgId) || 
           request.auth.uid == resource.data.employeeId
         );
-        allow create, update, delete: if isOrgAdmin(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
       }
     }
 
@@ -132,6 +138,26 @@ service cloud.firestore {
     match /uploads/{uploadId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Employee document uploads - for onboarding documents
+    match /organizations/{orgId}/employeeUploads/{uploadId} {
+      // Allow employees to upload their own documents during onboarding
+      allow create: if isSignedIn() && 
+        request.resource.data.employeeId == request.auth.uid &&
+        isOrgMember(orgId);
+      // Allow employees to read their own uploads and admins to read all uploads
+      allow read: if isOrgAdmin(orgId) || (
+        isSignedIn() && 
+        resource.data.employeeId == request.auth.uid &&
+        isOrgMember(orgId)
+      );
+      // Allow employees to update/delete their own uploads and admins to manage all
+      allow update, delete: if isOrgAdmin(orgId) || (
+        isSignedIn() && 
+        resource.data.employeeId == request.auth.uid &&
+        isOrgMember(orgId)
+      );
     }
 
     // Default deny for everything else
