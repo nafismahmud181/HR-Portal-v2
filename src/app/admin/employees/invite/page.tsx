@@ -1129,7 +1129,7 @@ export default function InviteEmployeePage() {
           )}
 
           {/* Submit Button in Form */}
-          <div className="flex justify-end hidden">
+          <div className="justify-end hidden">
             <button
               type="submit"
               disabled={status === 'sending' || (activeTab === "employee" ? 
