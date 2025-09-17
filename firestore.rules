@@ -122,6 +122,12 @@ service cloud.firestore {
         );
         allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
       }
+
+      // Settings subcollection - organization configuration
+      match /settings/{settingType} {
+        allow read: if isOrgMember(orgId) || isOrgCreator(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId) || isOrgCreator(orgId);
+      }
     }
 
     // Collection group access for organization users (for login queries)

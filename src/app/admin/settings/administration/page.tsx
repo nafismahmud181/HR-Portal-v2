@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collectionGroup, getDocs, query, where, doc, getDoc, setDoc } from "firebase/firestore";
 import UserManagementSection from "./UserManagementSection";
 import SystemConfigSection from "./SystemConfigSection";
 import SecurityAuditSection from "./SecurityAuditSection";
 import WorkflowAutomationSection from "./WorkflowAutomationSection";
 import AnalyticsReportingSection from "./AnalyticsReportingSection";
 import FeatureManagementSection from "./FeatureManagementSection";
+import OnboardingFieldConfigSection from "./OnboardingFieldConfigSection";
 
 interface AdministrationSettings {
   // User Management
@@ -695,6 +699,40 @@ interface AdministrationSettings {
       };
     };
   };
+  // Onboarding Field Configuration
+  onboardingFieldConfig: {
+    personalInformation: {
+      personalEmail: { enabled: boolean; required: boolean; label: string };
+      personalPhone: { enabled: boolean; required: boolean; label: string };
+      dateOfBirth: { enabled: boolean; required: boolean; label: string };
+      gender: { enabled: boolean; required: boolean; label: string };
+      maritalStatus: { enabled: boolean; required: boolean; label: string };
+      nationality: { enabled: boolean; required: boolean; label: string };
+      profilePhoto: { enabled: boolean; required: boolean; label: string };
+    };
+    addressInformation: {
+      currentAddress: { enabled: boolean; required: boolean; label: string };
+      permanentAddress: { enabled: boolean; required: boolean; label: string };
+      sameAsCurrent: { enabled: boolean; required: boolean; label: string };
+    };
+    emergencyContacts: {
+      primaryEmergencyContact: { enabled: boolean; required: boolean; label: string };
+      secondaryEmergencyContact: { enabled: boolean; required: boolean; label: string };
+    };
+    bankingTaxInfo: {
+      bankDetails: { enabled: boolean; required: boolean; label: string };
+      taxInformation: { enabled: boolean; required: boolean; label: string };
+    };
+    documents: {
+      governmentId: { enabled: boolean; required: boolean; label: string };
+      socialSecurityCard: { enabled: boolean; required: boolean; label: string };
+      i9Documents: { enabled: boolean; required: boolean; label: string };
+      directDepositForm: { enabled: boolean; required: boolean; label: string };
+      resume: { enabled: boolean; required: boolean; label: string };
+      certifications: { enabled: boolean; required: boolean; label: string };
+      transcripts: { enabled: boolean; required: boolean; label: string };
+    };
+  };
   [key: string]: unknown;
 }
 
@@ -702,12 +740,18 @@ export default function AdministrationSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("user-management");
-  const [modal, setModal] = useState({
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: "success" | "error";
+    title: string;
+    data: string;
+  }>({
     isOpen: false,
-    type: "",
+    type: "success",
     title: "",
-    data: null as unknown
+    data: ""
   });
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [formData, setFormData] = useState<AdministrationSettings>({
     // Analytics & Reporting Defaults
     reportConfiguration: {
@@ -1363,6 +1407,40 @@ export default function AdministrationSettingsPage() {
           escalationDelay: 24
         }
       }
+    },
+    // Onboarding Field Configuration Defaults
+    onboardingFieldConfig: {
+      personalInformation: {
+        personalEmail: { enabled: true, required: true, label: "Personal Email" },
+        personalPhone: { enabled: true, required: true, label: "Personal Phone Number" },
+        dateOfBirth: { enabled: true, required: true, label: "Date of Birth" },
+        gender: { enabled: true, required: false, label: "Gender" },
+        maritalStatus: { enabled: true, required: false, label: "Marital Status" },
+        nationality: { enabled: true, required: true, label: "Nationality" },
+        profilePhoto: { enabled: true, required: false, label: "Profile Photo" }
+      },
+      addressInformation: {
+        currentAddress: { enabled: true, required: true, label: "Current Address" },
+        permanentAddress: { enabled: true, required: true, label: "Permanent Address" },
+        sameAsCurrent: { enabled: true, required: false, label: "Same as Current Address" }
+      },
+      emergencyContacts: {
+        primaryEmergencyContact: { enabled: true, required: true, label: "Primary Emergency Contact" },
+        secondaryEmergencyContact: { enabled: true, required: false, label: "Secondary Emergency Contact" }
+      },
+      bankingTaxInfo: {
+        bankDetails: { enabled: true, required: true, label: "Banking Information" },
+        taxInformation: { enabled: true, required: true, label: "Tax Information" }
+      },
+      documents: {
+        governmentId: { enabled: true, required: true, label: "Government ID" },
+        socialSecurityCard: { enabled: true, required: true, label: "Social Security Card" },
+        i9Documents: { enabled: true, required: true, label: "I-9 Verification Documents" },
+        directDepositForm: { enabled: true, required: true, label: "Direct Deposit Form" },
+        resume: { enabled: true, required: false, label: "Resume/CV" },
+        certifications: { enabled: true, required: false, label: "Certifications" },
+        transcripts: { enabled: true, required: false, label: "Education Transcripts" }
+      }
     }
   });
 
@@ -1372,12 +1450,46 @@ export default function AdministrationSettingsPage() {
     { id: "security-audit", label: "Security & Audit", icon: "🔒" },
     { id: "workflow-automation", label: "Workflow & Automation", icon: "🔄" },
     { id: "analytics-reporting", label: "Analytics & Reporting", icon: "📊" },
-    { id: "feature-management", label: "Feature Management", icon: "🎛️" }
+    { id: "feature-management", label: "Feature Management", icon: "🎛️" },
+    { id: "onboarding-config", label: "Onboarding Configuration", icon: "📝" }
   ];
 
   useEffect(() => {
-    // TODO: Load settings from Firebase
-    setLoading(false);
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        // Get organization ID
+        const cg = collectionGroup(db, "users");
+        const q = query(cg, where("uid", "==", user.uid));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const membershipRef = snap.docs[0].ref;
+          const parentOrg = membershipRef.parent.parent;
+          const foundOrgId = parentOrg ? parentOrg.id : null;
+          setOrgId(foundOrgId);
+          
+          // Load existing settings if available
+          if (foundOrgId) {
+            const settingsRef = doc(db, "organizations", foundOrgId, "settings", "administration");
+            const settingsSnap = await getDoc(settingsRef);
+            if (settingsSnap.exists()) {
+              const existingData = settingsSnap.data() as AdministrationSettings;
+              setFormData(existingData);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    });
+    
+    return () => unsub();
   }, []);
 
   const handleInputChange = (field: string, value: unknown) => {
@@ -1387,34 +1499,70 @@ export default function AdministrationSettingsPage() {
     }));
   };
 
-  const handleNestedInputChange = (parent: string, field: string, value: unknown) => {
-    setFormData(prev => ({
-      ...prev,
-      [parent]: {
-        ...(prev[parent] as Record<string, unknown>),
-        [field]: value
+  const handleNestedInputChange = useCallback((parent: string, field: string, value: unknown) => {
+    setFormData(prev => {
+      // Create a deep copy of the formData
+      const newData = JSON.parse(JSON.stringify(prev));
+      
+      // Handle deeply nested objects like "onboardingFieldConfig.personalInformation.personalEmail.enabled"
+      const fieldParts = field.split('.');
+      
+      if (fieldParts.length === 3) {
+        // Handle: parent.field1.field2.field3
+        const [section, fieldName, property] = fieldParts;
+        
+        if (!newData[parent]) {
+          newData[parent] = {};
+        }
+        if (!newData[parent][section]) {
+          newData[parent][section] = {};
+        }
+        if (!newData[parent][section][fieldName]) {
+          newData[parent][section][fieldName] = {};
+        }
+        
+        newData[parent][section][fieldName][property] = value;
+      } else {
+        // Handle simple nested objects
+        if (!newData[parent]) {
+          newData[parent] = {};
+        }
+        newData[parent][field] = value;
       }
-    }));
-  };
+      
+      return newData;
+    });
+  }, []);
 
   const handleSave = async () => {
+    if (!orgId) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        title: "Error",
+        data: "Organization not found. Please refresh the page."
+      });
+      return;
+    }
+
     setSaving(true);
     try {
-      // TODO: Save to Firebase
-      console.log("Saving administration settings:", formData);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      const settingsRef = doc(db, "organizations", orgId, "settings", "administration");
+      await setDoc(settingsRef, formData, { merge: true });
+      
       setModal({
         isOpen: true,
         type: "success",
         title: "Settings Saved",
         data: "Administration settings have been saved successfully."
       });
-    } catch {
+    } catch (error) {
+      console.error("Error saving settings:", error);
       setModal({
         isOpen: true,
         type: "error",
         title: "Save Failed",
-        data: "Failed to save administration settings. Please try again."
+        data: error instanceof Error ? error.message : "Failed to save settings. Please try again."
       });
     } finally {
       setSaving(false);
@@ -1515,6 +1663,13 @@ export default function AdministrationSettingsPage() {
           )}
           {activeTab === "feature-management" && (
             <FeatureManagementSection 
+              formData={formData} 
+              onInputChange={handleInputChange} 
+              onNestedInputChange={handleNestedInputChange} 
+            />
+          )}
+          {activeTab === "onboarding-config" && (
+            <OnboardingFieldConfigSection 
               formData={formData} 
               onInputChange={handleInputChange} 
               onNestedInputChange={handleNestedInputChange} 

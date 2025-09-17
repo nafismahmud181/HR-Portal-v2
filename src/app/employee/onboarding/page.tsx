@@ -6,6 +6,40 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collectionGroup, getDocs, query, where, doc, getDoc, updateDoc } from "firebase/firestore";
 import { uploadEmployeeDocument, createFileMetadata, formatFileSize, getFileTypeIcon, FileMetadata } from "@/lib/file-upload";
 
+interface OnboardingFieldConfig {
+  personalInformation: {
+    personalEmail: { enabled: boolean; required: boolean; label: string };
+    personalPhone: { enabled: boolean; required: boolean; label: string };
+    dateOfBirth: { enabled: boolean; required: boolean; label: string };
+    gender: { enabled: boolean; required: boolean; label: string };
+    maritalStatus: { enabled: boolean; required: boolean; label: string };
+    nationality: { enabled: boolean; required: boolean; label: string };
+    profilePhoto: { enabled: boolean; required: boolean; label: string };
+  };
+  addressInformation: {
+    currentAddress: { enabled: boolean; required: boolean; label: string };
+    permanentAddress: { enabled: boolean; required: boolean; label: string };
+    sameAsCurrent: { enabled: boolean; required: boolean; label: string };
+  };
+  emergencyContacts: {
+    primaryEmergencyContact: { enabled: boolean; required: boolean; label: string };
+    secondaryEmergencyContact: { enabled: boolean; required: boolean; label: string };
+  };
+  bankingTaxInfo: {
+    bankDetails: { enabled: boolean; required: boolean; label: string };
+    taxInformation: { enabled: boolean; required: boolean; label: string };
+  };
+  documents: {
+    governmentId: { enabled: boolean; required: boolean; label: string };
+    socialSecurityCard: { enabled: boolean; required: boolean; label: string };
+    i9Documents: { enabled: boolean; required: boolean; label: string };
+    directDepositForm: { enabled: boolean; required: boolean; label: string };
+    resume: { enabled: boolean; required: boolean; label: string };
+    certifications: { enabled: boolean; required: boolean; label: string };
+    transcripts: { enabled: boolean; required: boolean; label: string };
+  };
+}
+
 interface OnboardingData {
   // Step 1: Personal Information
   personalEmail: string;
@@ -82,6 +116,7 @@ export default function EmployeeOnboardingPage() {
 
   const [orgId, setOrgId] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [fieldConfig, setFieldConfig] = useState<OnboardingFieldConfig | null>(null);
 
   const [formData, setFormData] = useState<OnboardingData>({
     personalEmail: "",
@@ -222,17 +257,35 @@ export default function EmployeeOnboardingPage() {
   };
 
   const validateStep = (step: number): boolean => {
+    if (!fieldConfig) return false;
+    
     switch (step) {
       case 1:
-        return !!(formData.personalEmail && formData.personalPhone && formData.dateOfBirth && formData.nationality);
+        const personalRequired = fieldConfig.personalInformation;
+        return !!(personalRequired.personalEmail.enabled && personalRequired.personalEmail.required ? formData.personalEmail : true) &&
+               !!(personalRequired.personalPhone.enabled && personalRequired.personalPhone.required ? formData.personalPhone : true) &&
+               !!(personalRequired.dateOfBirth.enabled && personalRequired.dateOfBirth.required ? formData.dateOfBirth : true) &&
+               !!(personalRequired.nationality.enabled && personalRequired.nationality.required ? formData.nationality : true);
       case 2:
-        return !!(formData.currentAddress.street && formData.currentAddress.city && formData.currentAddress.state && formData.currentAddress.zipCode && formData.currentAddress.country);
+        const addressRequired = fieldConfig.addressInformation;
+        return !!(addressRequired.currentAddress.enabled && addressRequired.currentAddress.required ? 
+          (formData.currentAddress.street && formData.currentAddress.city && formData.currentAddress.state && formData.currentAddress.zipCode && formData.currentAddress.country) : true) &&
+               !!(addressRequired.permanentAddress.enabled && addressRequired.permanentAddress.required ? 
+          (formData.permanentAddress.street && formData.permanentAddress.city && formData.permanentAddress.state && formData.permanentAddress.zipCode && formData.permanentAddress.country) : true);
       case 3:
-        return !!(formData.primaryEmergencyContact.name && formData.primaryEmergencyContact.relationship && formData.primaryEmergencyContact.phone);
+        const emergencyRequired = fieldConfig.emergencyContacts;
+        return !!(emergencyRequired.primaryEmergencyContact.enabled && emergencyRequired.primaryEmergencyContact.required ? 
+          (formData.primaryEmergencyContact.name && formData.primaryEmergencyContact.relationship && formData.primaryEmergencyContact.phone) : true);
       case 4:
-        return !!(formData.bankDetails.bankName && formData.bankDetails.accountNumber && formData.bankDetails.routingNumber && formData.taxInformation.ssn);
+        const bankingRequired = fieldConfig.bankingTaxInfo;
+        return !!(bankingRequired.bankDetails.enabled && bankingRequired.bankDetails.required ? 
+          (formData.bankDetails.bankName && formData.bankDetails.accountNumber && formData.bankDetails.routingNumber) : true) &&
+               !!(bankingRequired.taxInformation.enabled && bankingRequired.taxInformation.required ? formData.taxInformation.ssn : true);
       case 5:
-        return !!(formData.documents.governmentId && formData.documents.socialSecurityCard && formData.documents.i9Documents);
+        const docsRequired = fieldConfig.documents;
+        return !!(docsRequired.governmentId.enabled && docsRequired.governmentId.required ? formData.documents.governmentId : true) &&
+               !!(docsRequired.socialSecurityCard.enabled && docsRequired.socialSecurityCard.required ? formData.documents.socialSecurityCard : true) &&
+               !!(docsRequired.i9Documents.enabled && docsRequired.i9Documents.required ? formData.documents.i9Documents : true);
       default:
         return false;
     }
@@ -281,6 +334,54 @@ export default function EmployeeOnboardingPage() {
               return;
             }
           }
+
+          // Load onboarding field configuration
+          try {
+            const adminSettingsRef = doc(db, "organizations", foundOrgId, "settings", "administration");
+            const adminSettingsSnap = await getDoc(adminSettingsRef);
+            if (adminSettingsSnap.exists()) {
+              const adminData = adminSettingsSnap.data();
+              if (adminData.onboardingFieldConfig) {
+                setFieldConfig(adminData.onboardingFieldConfig as OnboardingFieldConfig);
+              }
+            }
+          } catch (configError) {
+            console.warn("Failed to load field configuration, using defaults:", configError);
+            // Use default configuration if loading fails
+            setFieldConfig({
+              personalInformation: {
+                personalEmail: { enabled: true, required: true, label: "Personal Email" },
+                personalPhone: { enabled: true, required: true, label: "Personal Phone Number" },
+                dateOfBirth: { enabled: true, required: true, label: "Date of Birth" },
+                gender: { enabled: true, required: false, label: "Gender" },
+                maritalStatus: { enabled: true, required: false, label: "Marital Status" },
+                nationality: { enabled: true, required: true, label: "Nationality" },
+                profilePhoto: { enabled: true, required: false, label: "Profile Photo" }
+              },
+              addressInformation: {
+                currentAddress: { enabled: true, required: true, label: "Current Address" },
+                permanentAddress: { enabled: true, required: true, label: "Permanent Address" },
+                sameAsCurrent: { enabled: true, required: false, label: "Same as Current Address" }
+              },
+              emergencyContacts: {
+                primaryEmergencyContact: { enabled: true, required: true, label: "Primary Emergency Contact" },
+                secondaryEmergencyContact: { enabled: true, required: false, label: "Secondary Emergency Contact" }
+              },
+              bankingTaxInfo: {
+                bankDetails: { enabled: true, required: true, label: "Banking Information" },
+                taxInformation: { enabled: true, required: true, label: "Tax Information" }
+              },
+              documents: {
+                governmentId: { enabled: true, required: true, label: "Government ID" },
+                socialSecurityCard: { enabled: true, required: true, label: "Social Security Card" },
+                i9Documents: { enabled: true, required: true, label: "I-9 Verification Documents" },
+                directDepositForm: { enabled: true, required: true, label: "Direct Deposit Form" },
+                resume: { enabled: true, required: false, label: "Resume/CV" },
+                certifications: { enabled: true, required: false, label: "Certifications" },
+                transcripts: { enabled: true, required: false, label: "Education Transcripts" }
+              }
+            });
+          }
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load onboarding data");
@@ -316,81 +417,119 @@ export default function EmployeeOnboardingPage() {
   };
 
   const renderStep = () => {
+    if (!fieldConfig) {
+      return <div className="text-center py-8">Loading configuration...</div>;
+    }
+
     switch (currentStep) {
       case 1:
         return (
           <div className="space-y-6">
-            <div>
-              <label className="block mb-2 text-[14px] font-medium text-[#374151]">Personal Email<span className="text-[#ef4444]"> *</span></label>
-              <input
-                type="email"
-                value={formData.personalEmail}
-                onChange={(e) => handleInputChange("personalEmail", e.target.value)}
-                className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                placeholder="your.email@example.com"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-[14px] font-medium text-[#374151]">Personal Phone Number<span className="text-[#ef4444]"> *</span></label>
-              <input
-                type="tel"
-                value={formData.personalPhone}
-                onChange={(e) => handleInputChange("personalPhone", e.target.value)}
-                className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                placeholder="+1 (555) 123-4567"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-[14px] font-medium text-[#374151]">Date of Birth<span className="text-[#ef4444]"> *</span></label>
-              <input
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
-                className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-              />
-            </div>
+            {fieldConfig.personalInformation.personalEmail.enabled && (
+              <div>
+                <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                  {fieldConfig.personalInformation.personalEmail.label}
+                  {fieldConfig.personalInformation.personalEmail.required && <span className="text-[#ef4444]"> *</span>}
+                </label>
+                <input
+                  type="email"
+                  value={formData.personalEmail}
+                  onChange={(e) => handleInputChange("personalEmail", e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                  placeholder="your.email@example.com"
+                />
+              </div>
+            )}
+            {fieldConfig.personalInformation.personalPhone.enabled && (
+              <div>
+                <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                  {fieldConfig.personalInformation.personalPhone.label}
+                  {fieldConfig.personalInformation.personalPhone.required && <span className="text-[#ef4444]"> *</span>}
+                </label>
+                <input
+                  type="tel"
+                  value={formData.personalPhone}
+                  onChange={(e) => handleInputChange("personalPhone", e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+            )}
+            {fieldConfig.personalInformation.dateOfBirth.enabled && (
+              <div>
+                <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                  {fieldConfig.personalInformation.dateOfBirth.label}
+                  {fieldConfig.personalInformation.dateOfBirth.required && <span className="text-[#ef4444]"> *</span>}
+                </label>
+                <input
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-2 text-[14px] font-medium text-[#374151]">Gender (Optional)</label>
-                <select
-                  value={formData.gender}
-                  onChange={(e) => handleInputChange("gender", e.target.value)}
-                  className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer-not-to-say">Prefer not to say</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 text-[14px] font-medium text-[#374151]">Marital Status (Optional)</label>
-                <select
-                  value={formData.maritalStatus}
-                  onChange={(e) => handleInputChange("maritalStatus", e.target.value)}
-                  className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                >
-                  <option value="">Select Status</option>
-                  <option value="single">Single</option>
-                  <option value="married">Married</option>
-                  <option value="divorced">Divorced</option>
-                  <option value="widowed">Widowed</option>
-                </select>
-              </div>
+              {fieldConfig.personalInformation.gender.enabled && (
+                <div>
+                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                    {fieldConfig.personalInformation.gender.label}
+                    {fieldConfig.personalInformation.gender.required && <span className="text-[#ef4444]"> *</span>}
+                  </label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => handleInputChange("gender", e.target.value)}
+                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer-not-to-say">Prefer not to say</option>
+                  </select>
+                </div>
+              )}
+              {fieldConfig.personalInformation.maritalStatus.enabled && (
+                <div>
+                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                    {fieldConfig.personalInformation.maritalStatus.label}
+                    {fieldConfig.personalInformation.maritalStatus.required && <span className="text-[#ef4444]"> *</span>}
+                  </label>
+                  <select
+                    value={formData.maritalStatus}
+                    onChange={(e) => handleInputChange("maritalStatus", e.target.value)}
+                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                  >
+                    <option value="">Select Status</option>
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                    <option value="divorced">Divorced</option>
+                    <option value="widowed">Widowed</option>
+                  </select>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block mb-2 text-[14px] font-medium text-[#374151]">Nationality<span className="text-[#ef4444]"> *</span></label>
-              <input
-                type="text"
-                value={formData.nationality}
-                onChange={(e) => handleInputChange("nationality", e.target.value)}
-                className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                placeholder="e.g., American, Canadian, British"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-[14px] font-medium text-[#374151]">Profile Photo</label>
+            {fieldConfig.personalInformation.nationality.enabled && (
+              <div>
+                <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                  {fieldConfig.personalInformation.nationality.label}
+                  {fieldConfig.personalInformation.nationality.required && <span className="text-[#ef4444]"> *</span>}
+                </label>
+                <input
+                  type="text"
+                  value={formData.nationality}
+                  onChange={(e) => handleInputChange("nationality", e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                  placeholder="e.g., American, Canadian, British"
+                />
+              </div>
+            )}
+            {fieldConfig.personalInformation.profilePhoto.enabled && (
+              <div>
+                <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                  {fieldConfig.personalInformation.profilePhoto.label}
+                  {fieldConfig.personalInformation.profilePhoto.required && <span className="text-[#ef4444]"> *</span>}
+                </label>
               <div className="border-2 border-dashed border-[#d1d5db] rounded-lg p-6 text-center">
                 <input
                   type="file"
@@ -425,7 +564,8 @@ export default function EmployeeOnboardingPage() {
                   </div>
                 </label>
               </div>
-            </div>
+              </div>
+            )}
           </div>
         );
 
@@ -927,25 +1067,25 @@ export default function EmployeeOnboardingPage() {
                     : 'bg-[#e5e7eb] text-[#6b7280]'
                 }`}>
                   {currentStep > step.id ? '✓' : step.id}
-                </div>
+          </div>
                 {index < steps.length - 1 && (
                   <div className={`w-16 h-1 mx-2 ${
                     currentStep > step.id ? 'bg-[#f97316]' : 'bg-[#e5e7eb]'
                   }`} />
                 )}
-              </div>
+          </div>
             ))}
           </div>
           <div className="mt-4">
             <h2 className="text-[18px] font-medium">{steps[currentStep - 1].title}</h2>
             <p className="text-[14px] text-[#6b7280]">{steps[currentStep - 1].description}</p>
           </div>
-        </div>
+          </div>
 
         {/* Form Content */}
         <div className="bg-white border border-[#e5e7eb] rounded-lg p-6">
           {renderStep()}
-        </div>
+          </div>
 
         {/* Error Message */}
         {error && (
@@ -984,7 +1124,7 @@ export default function EmployeeOnboardingPage() {
 {saving ? "Saving..." : "Review & Submit"}
             </button>
           )}
-        </div>
+          </div>
       </div>
     </div>
   );
