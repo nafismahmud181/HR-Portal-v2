@@ -288,9 +288,6 @@ export default function CreateRolePage() {
       missingFields.push("Primary Department");
     }
     
-    if (!formData.description?.trim()) {
-      missingFields.push("Role Description");
-    }
     
     if (!formData.category) {
       missingFields.push("Role Category");
