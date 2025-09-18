@@ -157,6 +157,7 @@ function CalendarView({ rows, empById }: { rows: AdminLeaveRow[]; empById: Recor
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [showFullCalendar, setShowFullCalendar] = useState(false);
 
   const days = useMemo(() => {
     const [y, m] = month.split('-').map((n) => parseInt(n, 10));
@@ -188,12 +189,28 @@ function CalendarView({ rows, empById }: { rows: AdminLeaveRow[]; empById: Recor
     <section className="mt-6 rounded-lg border border-[#e5e7eb] bg-white">
       <div className="p-5 border-b border-[#e5e7eb] flex items-center gap-3">
         <h2 className="text-[16px] font-semibold">Leave Calendar</h2>
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="ml-auto rounded-md border border-[#d1d5db] px-3 py-1.5 text-[14px]"
-        />
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={() => setShowFullCalendar(true)}
+            className="flex items-center gap-2 rounded-md border border-[#d1d5db] px-3 py-1.5 text-[14px] hover:bg-[#f9fafb] transition-colors"
+          >
+            <svg 
+              className="w-4 h-4" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+            Expand
+          </button>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-[14px]"
+          />
+        </div>
       </div>
       <div className="p-4 overflow-x-auto">
         <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(80px, 1fr))` }}>
@@ -215,6 +232,89 @@ function CalendarView({ rows, empById }: { rows: AdminLeaveRow[]; empById: Recor
           })}
         </div>
       </div>
+      
+      {/* Full Page Calendar Modal */}
+      {showFullCalendar && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-[#e5e7eb] flex items-center justify-between">
+              <h2 className="text-[20px] font-semibold">Leave Calendar - Full View</h2>
+              <div className="flex items-center gap-4">
+                <input
+                  type="month"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  className="rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]"
+                />
+                <button
+                  onClick={() => setShowFullCalendar(false)}
+                  className="flex items-center gap-2 rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] hover:bg-[#f9fafb] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Close
+                </button>
+              </div>
+            </div>
+            
+            {/* Full Calendar Content */}
+            <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
+              <div className="grid grid-cols-7 gap-1">
+                {/* Day Headers */}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="p-3 text-center text-[12px] font-semibold text-[#6b7280] bg-[#f9fafb] border border-[#e5e7eb]">
+                    {day}
+                  </div>
+                ))}
+                
+                {/* Calendar Days */}
+                {(() => {
+                  const [y, m] = month.split('-').map((n) => parseInt(n, 10));
+                  const firstDay = new Date(y, m - 1, 1);
+                  const lastDay = new Date(y, m, 0);
+                  const startDate = new Date(firstDay);
+                  startDate.setDate(startDate.getDate() - firstDay.getDay());
+                  
+                  const days = [];
+                  for (let i = 0; i < 42; i++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + i);
+                    const iso = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+                    const isCurrentMonth = currentDate.getMonth() === m - 1;
+                    const isToday = currentDate.toDateString() === new Date().toDateString();
+                    const list = byDay[iso] || [];
+                    
+                    days.push(
+                      <div 
+                        key={iso} 
+                        className={`min-h-[120px] border border-[#e5e7eb] p-2 ${isCurrentMonth ? 'bg-white' : 'bg-[#f9fafb]'} ${isToday ? 'ring-2 ring-[#f97316]' : ''}`}
+                      >
+                        <div className={`text-[12px] font-medium mb-2 ${isCurrentMonth ? 'text-[#374151]' : 'text-[#9ca3af]'} ${isToday ? 'text-[#f97316]' : ''}`}>
+                          {currentDate.getDate()}
+                        </div>
+                        <div className="space-y-1">
+                          {list.map((p, idx) => (
+                            <div 
+                              key={idx} 
+                              className={`text-[10px] px-2 py-1 rounded cursor-pointer hover:opacity-80 ${p.status === 'approved' ? 'bg-[#ecfdf5] text-[#065f46]' : p.status === 'rejected' ? 'bg-[#fef2f2] text-[#991b1b]' : 'bg-[#fffbeb] text-[#92400e]'}`}
+                              title={`${p.name} - ${p.type} (${p.status})`}
+                            >
+                              {p.name} • {p.type}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return days;
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
