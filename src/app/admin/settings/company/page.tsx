@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 import CompanyProfileSection from "./CompanyProfileSection";
 import BusinessConfigSection from "./BusinessConfigSection";
 import OfficeLocationsSection from "./OfficeLocationsSection";
@@ -203,6 +206,7 @@ interface CompanySettings {
 
 
 export default function CompanySettingsPage() {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
@@ -390,13 +394,63 @@ export default function CompanySettingsPage() {
   ];
 
   useEffect(() => {
-    loadCompanySettings();
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      if (user) {
+        await loadCompanySettings(user);
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsub();
   }, []);
 
-  const loadCompanySettings = async () => {
+  const loadCompanySettings = async (user: User) => {
     setLoading(true);
     try {
-      // TODO: Load from Firebase
+      // Query for organization where user is the creator
+      const orgsRef = collection(db, "organizations");
+      const q = query(orgsRef, where("createdBy", "==", user.uid));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const orgDoc = querySnapshot.docs[0];
+        const orgData = orgDoc.data();
+        
+        // Map organization data to form data
+        setFormData(prev => ({
+          ...prev,
+          // Company Profile
+          companyName: orgData.legalName || orgData.name || "",
+          displayName: orgData.displayName || orgData.name || "",
+          industryType: orgData.industry || "",
+          websiteUrl: orgData.website || "",
+          companySize: orgData.size || "",
+          
+          // Contact Information
+          primaryAddress: {
+            street: orgData.adminAddress?.street || "",
+            city: orgData.adminAddress?.city || "",
+            state: orgData.adminAddress?.state || "",
+            zipCode: orgData.adminAddress?.zip || "",
+            country: orgData.country || ""
+          },
+          primaryPhone: orgData.adminPhone || "",
+          
+          // Working hours timezone
+          workingHours: {
+            ...prev.workingHours,
+            timeZone: orgData.timezone || prev.workingHours.timeZone
+          },
+          
+          // Remote work policy
+          remoteWorkPolicy: {
+            allowed: orgData.remoteWork?.includes("remote") || false,
+            hybrid: orgData.remoteWork?.includes("some") || false,
+            geographicRestrictions: []
+          }
+        }));
+      }
       setLoading(false);
     } catch (error) {
       console.error("Error loading company settings:", error);
@@ -447,6 +501,17 @@ export default function CompanySettingsPage() {
       setSaving(false);
     }
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-[#1a1a1a]">Access Denied</h1>
+          <p className="text-[#6b7280] mt-2">You must be logged in to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
