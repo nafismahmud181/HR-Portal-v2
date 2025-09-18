@@ -7,6 +7,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { collectionGroup, getDocs, query, where } from "firebase/firestore";
 import { checkSetupStatus } from "@/lib/setup-guard";
+import Navbar from "@/components/Navbar";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -219,8 +220,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="h-screen grid grid-cols-1 md:grid-cols-[240px_1fr] print:grid-cols-1 bg-[#ffffff] text-[#1a1a1a] overflow-hidden">
-      <aside className="hidden md:block border-r border-[#e5e7eb] p-4 h-screen sticky top-0 overflow-y-auto print:hidden">
+    <div className="min-h-screen bg-[#ffffff] text-[#1a1a1a]">
+      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] print:grid-cols-1">
+        <aside className="hidden md:block border-r border-[#e5e7eb] p-4 min-h-screen sticky top-0 overflow-y-auto print:hidden">
         <div className="px-2 py-3 flex items-center gap-2">
           <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
           <span className="text-[16px] font-semibold">HRMSTech</span>
@@ -266,13 +268,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       ) : null}
 
-      <main className="min-h-0 overflow-y-auto print:overflow-visible print:h-auto">
-        <div className="md:hidden flex items-center justify-between p-4 border-b border-[#e5e7eb]">
-          <button type="button" aria-label="Open menu" className="rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" onClick={() => setMobileOpen(true)}>Menu</button>
-          <span className="text-[16px] font-semibold">Admin</span>
-        </div>
-        {children}
-      </main>
+        <main className="min-h-screen print:overflow-visible print:h-auto">
+          <Navbar />
+          <div className="md:hidden flex items-center justify-between p-4 border-b border-[#e5e7eb]">
+            <button type="button" aria-label="Open menu" className="rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" onClick={() => setMobileOpen(true)}>Menu</button>
+            <span className="text-[16px] font-semibold">Admin</span>
+          </div>
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
