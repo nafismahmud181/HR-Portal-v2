@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { doc, updateDoc, collection, collectionGroup, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc, collection, collectionGroup, query, where, getDocs, addDoc, writeBatch } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import Link from "next/link";
@@ -111,6 +111,1325 @@ const TIMEZONES = [
   "Alaska Time (UTC-9)",
   "Hawaii Time (UTC-10)"
 ];
+
+// Technology Industry Templates
+const TECH_DEPARTMENTS = [
+  {
+    name: "Executive Leadership",
+    code: "EXEC",
+    type: "core",
+    description: "Executive team responsible for strategic direction and company vision",
+    parentId: null
+  },
+  {
+    name: "Product & Engineering",
+    code: "PRODENG",
+    type: "core", 
+    description: "Product development, engineering, and technical innovation",
+    parentId: null
+  },
+  {
+    name: "Frontend Engineering",
+    code: "FRONTEND",
+    type: "core",
+    description: "User interface and client-side application development",
+    parentId: "PRODENG"
+  },
+  {
+    name: "Backend Engineering", 
+    code: "BACKEND",
+    type: "core",
+    description: "Server-side development and API management",
+    parentId: "PRODENG"
+  },
+  {
+    name: "Full-Stack Engineering",
+    code: "FULLSTACK", 
+    type: "core",
+    description: "End-to-end application development",
+    parentId: "PRODENG"
+  },
+  {
+    name: "Mobile Engineering",
+    code: "MOBILE",
+    type: "core", 
+    description: "iOS, Android, and cross-platform mobile development",
+    parentId: "PRODENG"
+  },
+  {
+    name: "DevOps & Infrastructure",
+    code: "DEVOPS",
+    type: "core",
+    description: "Cloud infrastructure, deployment, and system reliability",
+    parentId: "PRODENG"
+  },
+  {
+    name: "UI/UX Design",
+    code: "DESIGN",
+    type: "core",
+    description: "User experience and interface design",
+    parentId: "PRODENG"
+  },
+  {
+    name: "Quality Assurance",
+    code: "QA",
+    type: "support",
+    description: "Software testing, quality control, and automation",
+    parentId: null
+  },
+  {
+    name: "Product Management", 
+    code: "PRODMGMT",
+    type: "core",
+    description: "Product strategy, roadmap, and project coordination",
+    parentId: null
+  },
+  {
+    name: "Data & AI",
+    code: "DATA",
+    type: "core",
+    description: "Data science, machine learning, and business intelligence", 
+    parentId: null
+  },
+  {
+    name: "IT & Internal Systems",
+    code: "IT",
+    type: "support",
+    description: "Information technology infrastructure and internal systems support",
+    parentId: null
+  },
+  {
+    name: "Sales & Marketing",
+    code: "SALESMKT",
+    type: "core",
+    description: "Revenue generation, customer acquisition, and brand management",
+    parentId: null
+  },
+  {
+    name: "Sales",
+    code: "SALES",
+    type: "core",
+    description: "Direct sales, partnerships, and customer success",
+    parentId: "SALESMKT"
+  },
+  {
+    name: "Marketing",
+    code: "MARKETING",
+    type: "core", 
+    description: "Brand management, digital marketing, and content strategy",
+    parentId: "SALESMKT"
+  },
+  {
+    name: "Finance & Legal",
+    code: "FINLEGAL",
+    type: "support",
+    description: "Financial management, accounting, and legal compliance",
+    parentId: null
+  },
+  {
+    name: "Human Resources",
+    code: "HR",
+    type: "support",
+    description: "Talent management, employee relations, and organizational development",
+    parentId: null
+  },
+  {
+    name: "Customer Support & Operations",
+    code: "CUSTOPS",
+    type: "support",
+    description: "Customer experience, technical support, and operational excellence",
+    parentId: null
+  }
+];
+
+const TECH_ROLES = [
+  // Executive Leadership
+  {
+    title: "Chief Executive Officer (CEO)",
+    code: "CEO001",
+    category: "executive",
+    level: 10,
+    seniority: "executive",
+    description: "Sets overall vision and strategy for the company",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Define company vision and strategic direction",
+      "Lead executive team and board communications", 
+      "Drive business growth and market expansion",
+      "Ensure organizational alignment with company goals"
+    ]
+  },
+  {
+    title: "Chief Operating Officer (COO)",
+    code: "COO001", 
+    category: "executive",
+    level: 9,
+    seniority: "executive",
+    description: "Oversees daily operations and ensures smooth delivery",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Oversee daily business operations",
+      "Ensure operational efficiency and effectiveness",
+      "Manage cross-functional collaboration",
+      "Drive process improvements"
+    ]
+  },
+  {
+    title: "Chief Technology Officer (CTO)",
+    code: "CTO001",
+    category: "executive", 
+    level: 9,
+    seniority: "executive",
+    description: "Leads product, engineering, QA, and technical strategy",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Define technical strategy and architecture",
+      "Lead engineering and product teams",
+      "Drive innovation and technology adoption",
+      "Ensure technical excellence and scalability"
+    ]
+  },
+  {
+    title: "Chief Financial Officer (CFO)",
+    code: "CFO001",
+    category: "executive",
+    level: 9, 
+    seniority: "executive",
+    description: "Manages finances, accounting, and investments",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Oversee financial planning and analysis",
+      "Manage accounting and financial reporting",
+      "Lead fundraising and investor relations",
+      "Ensure financial compliance and controls"
+    ]
+  },
+  {
+    title: "Chief Human Resources Officer (CHRO)",
+    code: "CHRO001",
+    category: "executive",
+    level: 9,
+    seniority: "executive", 
+    description: "Handles talent, policies, and employee well-being",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Lead talent acquisition and retention strategies",
+      "Develop organizational culture and policies",
+      "Oversee employee development and performance",
+      "Ensure compliance with employment laws"
+    ]
+  },
+  {
+    title: "Chief Marketing Officer (CMO)",
+    code: "CMO001",
+    category: "executive",
+    level: 9,
+    seniority: "executive",
+    description: "Branding, campaigns, and lead generation",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Define brand strategy and positioning",
+      "Lead marketing campaigns and initiatives",
+      "Drive lead generation and customer acquisition",
+      "Manage marketing budget and ROI"
+    ]
+  },
+  {
+    title: "Chief Sales Officer (CSO)",
+    code: "CSO001", 
+    category: "executive",
+    level: 9,
+    seniority: "executive",
+    description: "Revenue generation, partnerships, and sales strategy",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Develop sales strategy and processes",
+      "Lead revenue generation initiatives",
+      "Manage key partnerships and relationships",
+      "Drive sales team performance"
+    ]
+  },
+  {
+    title: "Chief Information Security Officer (CISO)",
+    code: "CISO001",
+    category: "executive",
+    level: 9,
+    seniority: "executive",
+    description: "Oversees cybersecurity, compliance, and risk",
+    departmentCode: "EXEC",
+    responsibilities: [
+      "Define cybersecurity strategy and policies",
+      "Manage security risk and compliance",
+      "Lead incident response and recovery",
+      "Oversee security awareness and training"
+    ]
+  },
+  // Frontend Engineering
+  {
+    title: "Frontend Engineering Manager",
+    code: "FEM001",
+    category: "management",
+    level: 7,
+    seniority: "senior",
+    description: "Leads frontend development team and technical strategy",
+    departmentCode: "FRONTEND",
+    responsibilities: [
+      "Lead and mentor frontend engineering team",
+      "Define frontend architecture and standards",
+      "Coordinate with design and backend teams", 
+      "Drive frontend performance and user experience"
+    ]
+  },
+  {
+    title: "Senior Frontend Engineer", 
+    code: "SFE001",
+    category: "professional",
+    level: 6,
+    seniority: "senior",
+    description: "Senior-level frontend development with leadership responsibilities",
+    departmentCode: "FRONTEND",
+    responsibilities: [
+      "Develop complex frontend features and components",
+      "Mentor junior developers",
+      "Lead technical design discussions",
+      "Ensure code quality and best practices"
+    ]
+  },
+  {
+    title: "Frontend Engineer",
+    code: "FE001", 
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Frontend development using modern frameworks and technologies",
+    departmentCode: "FRONTEND",
+    responsibilities: [
+      "Build responsive web applications",
+      "Implement user interfaces from designs",
+      "Collaborate with UX/UI designers",
+      "Write maintainable and testable code"
+    ]
+  },
+  {
+    title: "Junior Frontend Engineer",
+    code: "JFE001",
+    category: "professional", 
+    level: 2,
+    seniority: "junior",
+    description: "Entry-level frontend development role",
+    departmentCode: "FRONTEND",
+    responsibilities: [
+      "Learn frontend technologies and frameworks",
+      "Implement simple UI components",
+      "Fix bugs and make minor enhancements",
+      "Participate in code reviews"
+    ]
+  },
+  // Backend Engineering
+  {
+    title: "Backend Engineering Manager",
+    code: "BEM001",
+    category: "management",
+    level: 7,
+    seniority: "senior", 
+    description: "Leads backend development team and system architecture",
+    departmentCode: "BACKEND",
+    responsibilities: [
+      "Lead backend engineering team",
+      "Design system architecture and APIs",
+      "Ensure scalability and performance",
+      "Coordinate with frontend and DevOps teams"
+    ]
+  },
+  {
+    title: "Senior Backend Engineer",
+    code: "SBE001",
+    category: "professional",
+    level: 6,
+    seniority: "senior",
+    description: "Senior backend development with system design expertise", 
+    departmentCode: "BACKEND",
+    responsibilities: [
+      "Design and implement scalable backend systems",
+      "Lead API design and database architecture",
+      "Mentor junior engineers",
+      "Optimize system performance"
+    ]
+  },
+  {
+    title: "Backend Engineer", 
+    code: "BE001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Backend development focusing on APIs and data processing",
+    departmentCode: "BACKEND",
+    responsibilities: [
+      "Develop REST APIs and microservices",
+      "Design database schemas",
+      "Implement business logic",
+      "Ensure system reliability"
+    ]
+  },
+  // Full-Stack Engineering
+  {
+    title: "Full-Stack Manager",
+    code: "FSM001",
+    category: "management",
+    level: 7,
+    seniority: "senior",
+    description: "Leads full-stack development initiatives",
+    departmentCode: "FULLSTACK",
+    responsibilities: [
+      "Manage full-stack development projects",
+      "Coordinate frontend and backend integration",
+      "Lead technical architecture decisions",
+      "Mentor full-stack engineers"
+    ]
+  },
+  {
+    title: "Senior Full-Stack Engineer",
+    code: "SFSE001", 
+    category: "professional",
+    level: 6,
+    seniority: "senior",
+    description: "Senior full-stack development across the entire application stack",
+    departmentCode: "FULLSTACK",
+    responsibilities: [
+      "Develop end-to-end features",
+      "Design system architecture",
+      "Lead technical discussions",
+      "Ensure application performance"
+    ]
+  },
+  // Mobile Engineering
+  {
+    title: "Mobile Engineering Manager",
+    code: "MEM001",
+    category: "management", 
+    level: 7,
+    seniority: "senior",
+    description: "Leads mobile development across platforms",
+    departmentCode: "MOBILE",
+    responsibilities: [
+      "Lead mobile engineering team",
+      "Define mobile strategy and architecture",
+      "Coordinate iOS and Android development",
+      "Ensure mobile app quality"
+    ]
+  },
+  {
+    title: "iOS Engineer",
+    code: "IOS001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Native iOS application development",
+    departmentCode: "MOBILE",
+    responsibilities: [
+      "Develop native iOS applications",
+      "Implement iOS-specific features",
+      "Optimize app performance",
+      "Follow iOS design guidelines"
+    ]
+  },
+  {
+    title: "Android Engineer",
+    code: "AND001",
+    category: "professional",
+    level: 4, 
+    seniority: "mid",
+    description: "Native Android application development",
+    departmentCode: "MOBILE",
+    responsibilities: [
+      "Develop native Android applications",
+      "Implement Android-specific features", 
+      "Optimize app performance",
+      "Follow Material Design principles"
+    ]
+  },
+  // DevOps & Infrastructure
+  {
+    title: "DevOps Manager",
+    code: "DOM001",
+    category: "management",
+    level: 7,
+    seniority: "senior",
+    description: "Leads DevOps practices and infrastructure management",
+    departmentCode: "DEVOPS", 
+    responsibilities: [
+      "Lead DevOps and infrastructure team",
+      "Define CI/CD pipelines and processes",
+      "Manage cloud infrastructure strategy",
+      "Ensure system reliability and security"
+    ]
+  },
+  {
+    title: "Site Reliability Engineer (SRE)",
+    code: "SRE001",
+    category: "professional",
+    level: 5,
+    seniority: "senior",
+    description: "Ensures system reliability, performance, and scalability",
+    departmentCode: "DEVOPS",
+    responsibilities: [
+      "Monitor system performance and reliability",
+      "Implement automation and monitoring tools",
+      "Respond to incidents and outages",
+      "Optimize system performance"
+    ]
+  },
+  {
+    title: "Cloud Engineer",
+    code: "CE001", 
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Cloud infrastructure design and management",
+    departmentCode: "DEVOPS",
+    responsibilities: [
+      "Design and implement cloud architecture",
+      "Manage AWS/Azure/GCP services",
+      "Implement infrastructure as code",
+      "Optimize cloud costs"
+    ]
+  },
+  // UI/UX Design
+  {
+    title: "Design Director",
+    code: "DD001",
+    category: "management",
+    level: 8, 
+    seniority: "senior",
+    description: "Leads design strategy and creative vision",
+    departmentCode: "DESIGN",
+    responsibilities: [
+      "Define design strategy and vision",
+      "Lead design team and processes",
+      "Ensure design consistency across products",
+      "Collaborate with product and engineering"
+    ]
+  },
+  {
+    title: "UI/UX Designer",
+    code: "UXD001",
+    category: "professional",
+    level: 4,
+    seniority: "mid", 
+    description: "User experience and interface design",
+    departmentCode: "DESIGN",
+    responsibilities: [
+      "Design user interfaces and experiences",
+      "Conduct user research and testing",
+      "Create wireframes and prototypes",
+      "Collaborate with engineering teams"
+    ]
+  },
+  // Quality Assurance
+  {
+    title: "Head of QA",
+    code: "HQA001",
+    category: "management",
+    level: 8,
+    seniority: "senior",
+    description: "Leads quality assurance strategy and processes", 
+    departmentCode: "QA",
+    responsibilities: [
+      "Define QA strategy and processes",
+      "Lead QA team and initiatives",
+      "Ensure product quality standards",
+      "Implement test automation"
+    ]
+  },
+  {
+    title: "QA Manager",
+    code: "QAM001",
+    category: "management",
+    level: 6,
+    seniority: "senior",
+    description: "Manages QA team and testing processes",
+    departmentCode: "QA",
+    responsibilities: [
+      "Manage QA team and projects",
+      "Plan and execute test strategies",
+      "Coordinate with development teams",
+      "Ensure testing coverage"
+    ]
+  },
+  {
+    title: "Manual QA Engineer", 
+    code: "MQA001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Manual testing and quality assurance",
+    departmentCode: "QA",
+    responsibilities: [
+      "Execute manual test cases",
+      "Identify and report bugs",
+      "Verify bug fixes",
+      "Participate in test planning"
+    ]
+  },
+  {
+    title: "Test Automation Engineer",
+    code: "TAE001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Automated testing using modern frameworks",
+    departmentCode: "QA", 
+    responsibilities: [
+      "Develop automated test scripts",
+      "Maintain test automation frameworks",
+      "Execute automated test suites",
+      "Integrate tests into CI/CD pipelines"
+    ]
+  },
+  // Product Management
+  {
+    title: "VP of Product",
+    code: "VPP001",
+    category: "management",
+    level: 8,
+    seniority: "senior",
+    description: "Leads product strategy and roadmap",
+    departmentCode: "PRODMGMT",
+    responsibilities: [
+      "Define product vision and strategy",
+      "Lead product management team",
+      "Drive product roadmap decisions",
+      "Coordinate with engineering and design"
+    ]
+  },
+  {
+    title: "Product Manager",
+    code: "PM001",
+    category: "professional", 
+    level: 5,
+    seniority: "mid",
+    description: "Manages product development and strategy",
+    departmentCode: "PRODMGMT",
+    responsibilities: [
+      "Define product requirements",
+      "Manage product backlog",
+      "Coordinate with development teams",
+      "Analyze product metrics"
+    ]
+  },
+  {
+    title: "Scrum Master",
+    code: "SM001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Facilitates agile development processes",
+    departmentCode: "PRODMGMT",
+    responsibilities: [
+      "Facilitate scrum ceremonies",
+      "Remove development blockers", 
+      "Coach teams on agile practices",
+      "Track project progress"
+    ]
+  },
+  // Data & AI
+  {
+    title: "Head of Data",
+    code: "HOD001",
+    category: "management",
+    level: 8,
+    seniority: "senior",
+    description: "Leads data strategy and analytics initiatives",
+    departmentCode: "DATA",
+    responsibilities: [
+      "Define data strategy and governance",
+      "Lead data science and analytics teams",
+      "Drive data-driven decision making",
+      "Ensure data quality and security"
+    ]
+  },
+  {
+    title: "Data Scientist",
+    code: "DS001",
+    category: "professional",
+    level: 5, 
+    seniority: "mid",
+    description: "Advanced analytics and machine learning",
+    departmentCode: "DATA",
+    responsibilities: [
+      "Develop predictive models",
+      "Analyze complex datasets",
+      "Build machine learning algorithms",
+      "Present insights to stakeholders"
+    ]
+  },
+  {
+    title: "Machine Learning Engineer",
+    code: "MLE001",
+    category: "professional",
+    level: 5,
+    seniority: "mid",
+    description: "ML model development and deployment",
+    departmentCode: "DATA",
+    responsibilities: [
+      "Deploy ML models to production",
+      "Build ML infrastructure and pipelines", 
+      "Optimize model performance",
+      "Collaborate with data scientists"
+    ]
+  },
+  {
+    title: "Data Engineer",
+    code: "DE001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Data pipeline and infrastructure development",
+    departmentCode: "DATA",
+    responsibilities: [
+      "Build data pipelines and ETL processes",
+      "Design data warehouse architecture",
+      "Ensure data quality and reliability",
+      "Optimize data processing performance"
+    ]
+  },
+  // IT & Internal Systems
+  {
+    title: "IT Director",
+    code: "ITD001",
+    category: "management",
+    level: 8,
+    seniority: "senior",
+    description: "Leads IT strategy and infrastructure management",
+    departmentCode: "IT",
+    responsibilities: [
+      "Define IT strategy and roadmap",
+      "Manage IT budget and resources",
+      "Ensure system security and compliance",
+      "Lead digital transformation initiatives"
+    ]
+  },
+  {
+    title: "IT Manager",
+    code: "ITM001",
+    category: "management", 
+    level: 6,
+    seniority: "senior",
+    description: "Manages IT operations and support teams",
+    departmentCode: "IT",
+    responsibilities: [
+      "Manage IT support and operations",
+      "Coordinate system maintenance and upgrades",
+      "Oversee helpdesk and user support",
+      "Ensure service level agreements"
+    ]
+  },
+  {
+    title: "Systems Administrator",
+    code: "SA001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Maintains and administers IT systems and infrastructure",
+    departmentCode: "IT",
+    responsibilities: [
+      "Manage servers and network infrastructure",
+      "Perform system backups and recovery",
+      "Monitor system performance",
+      "Install and configure software"
+    ]
+  },
+  {
+    title: "Helpdesk / IT Support",
+    code: "HD001",
+    category: "support",
+    level: 2,
+    seniority: "junior",
+    description: "Provides technical support to end users",
+    departmentCode: "IT",
+    responsibilities: [
+      "Resolve technical issues and tickets",
+      "Provide user training and support",
+      "Maintain IT documentation",
+      "Escalate complex issues"
+    ]
+  },
+  {
+    title: "Security Engineer", 
+    code: "SE001",
+    category: "professional",
+    level: 5,
+    seniority: "senior",
+    description: "Implements and maintains security systems",
+    departmentCode: "IT",
+    responsibilities: [
+      "Design and implement security solutions",
+      "Monitor security threats and vulnerabilities",
+      "Conduct security assessments",
+      "Respond to security incidents"
+    ]
+  },
+  {
+    title: "Network Engineer",
+    code: "NE001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Designs and maintains network infrastructure",
+    departmentCode: "IT",
+    responsibilities: [
+      "Design and implement network architecture",
+      "Monitor network performance",
+      "Troubleshoot connectivity issues",
+      "Manage network security"
+    ]
+  },
+  // Sales Division
+  {
+    title: "VP of Sales",
+    code: "VPS001",
+    category: "management",
+    level: 8,
+    seniority: "senior",
+    description: "Leads sales strategy and revenue generation",
+    departmentCode: "SALES",
+    responsibilities: [
+      "Develop sales strategy and processes",
+      "Lead sales team and performance",
+      "Manage key client relationships",
+      "Drive revenue growth"
+    ]
+  },
+  {
+    title: "Regional Sales Manager",
+    code: "RSM001",
+    category: "management",
+    level: 6,
+    seniority: "senior", 
+    description: "Manages sales operations in specific regions",
+    departmentCode: "SALES",
+    responsibilities: [
+      "Manage regional sales team",
+      "Develop territory strategies",
+      "Build customer relationships",
+      "Achieve regional sales targets"
+    ]
+  },
+  {
+    title: "Sales Executive",
+    code: "SX001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Direct sales and client relationship management",
+    departmentCode: "SALES",
+    responsibilities: [
+      "Generate new business opportunities",
+      "Manage sales pipeline",
+      "Negotiate contracts and deals",
+      "Maintain client relationships"
+    ]
+  },
+  {
+    title: "Customer Success Manager",
+    code: "CSM001",
+    category: "professional",
+    level: 5,
+    seniority: "mid",
+    description: "Ensures customer satisfaction and retention",
+    departmentCode: "SALES",
+    responsibilities: [
+      "Manage customer onboarding",
+      "Drive customer adoption and success",
+      "Handle customer renewals",
+      "Identify upselling opportunities"
+    ]
+  },
+  {
+    title: "Partnerships Manager",
+    code: "PM002",
+    category: "professional", 
+    level: 5,
+    seniority: "mid",
+    description: "Develops and manages strategic partnerships",
+    departmentCode: "SALES",
+    responsibilities: [
+      "Identify partnership opportunities",
+      "Negotiate partnership agreements",
+      "Manage partner relationships",
+      "Drive partner revenue"
+    ]
+  },
+  // Marketing Division
+  {
+    title: "VP of Marketing",
+    code: "VPM001",
+    category: "management",
+    level: 8,
+    seniority: "senior",
+    description: "Leads marketing strategy and brand management",
+    departmentCode: "MARKETING",
+    responsibilities: [
+      "Define marketing strategy and vision",
+      "Lead marketing team and campaigns",
+      "Manage marketing budget and ROI",
+      "Drive brand awareness and lead generation"
+    ]
+  },
+  {
+    title: "Marketing Manager",
+    code: "MM001",
+    category: "management",
+    level: 6,
+    seniority: "senior",
+    description: "Manages marketing operations and campaigns",
+    departmentCode: "MARKETING",
+    responsibilities: [
+      "Plan and execute marketing campaigns",
+      "Manage marketing team and projects",
+      "Analyze campaign performance",
+      "Coordinate with sales and product teams"
+    ]
+  },
+  {
+    title: "Digital Marketing Specialist",
+    code: "DMS001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Manages digital marketing channels and campaigns",
+    departmentCode: "MARKETING",
+    responsibilities: [
+      "Manage digital advertising campaigns",
+      "Optimize conversion rates",
+      "Analyze digital marketing metrics",
+      "Manage marketing automation"
+    ]
+  },
+  {
+    title: "SEO/Content Specialist",
+    code: "SCS001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Creates content and optimizes for search engines",
+    departmentCode: "MARKETING",
+    responsibilities: [
+      "Create and optimize content for SEO",
+      "Conduct keyword research",
+      "Manage content calendar",
+      "Monitor search rankings"
+    ]
+  },
+  {
+    title: "Social Media Manager",
+    code: "SMM001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Manages social media presence and engagement",
+    departmentCode: "MARKETING", 
+    responsibilities: [
+      "Create social media content",
+      "Manage social media accounts",
+      "Engage with online community",
+      "Analyze social media metrics"
+    ]
+  },
+  {
+    title: "Brand Manager",
+    code: "BM001",
+    category: "professional",
+    level: 5,
+    seniority: "mid",
+    description: "Manages brand identity and positioning",
+    departmentCode: "MARKETING",
+    responsibilities: [
+      "Develop brand strategy and guidelines",
+      "Ensure brand consistency",
+      "Manage brand partnerships",
+      "Monitor brand perception"
+    ]
+  },
+  // Finance & Legal Division
+  {
+    title: "Finance Director",
+    code: "FD001",
+    category: "management",
+    level: 7,
+    seniority: "senior",
+    description: "Leads financial planning and analysis",
+    departmentCode: "FINLEGAL",
+    responsibilities: [
+      "Lead financial planning and budgeting",
+      "Oversee accounting operations",
+      "Manage financial reporting",
+      "Drive financial strategy"
+    ]
+  },
+  {
+    title: "Accountant",
+    code: "ACC001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Manages accounting and financial records",
+    departmentCode: "FINLEGAL",
+    responsibilities: [
+      "Maintain financial records",
+      "Prepare financial statements",
+      "Manage accounts payable/receivable",
+      "Ensure compliance with accounting standards"
+    ]
+  },
+  {
+    title: "Payroll Specialist",
+    code: "PS001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Manages employee payroll and benefits",
+    departmentCode: "FINLEGAL",
+    responsibilities: [
+      "Process employee payroll",
+      "Manage benefits administration",
+      "Ensure payroll compliance",
+      "Handle payroll inquiries"
+    ]
+  },
+  {
+    title: "Billing Specialist",
+    code: "BS001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Manages customer billing and invoicing",
+    departmentCode: "FINLEGAL",
+    responsibilities: [
+      "Generate customer invoices",
+      "Manage billing processes",
+      "Handle billing inquiries",
+      "Monitor payment collections"
+    ]
+  },
+  {
+    title: "Legal & Compliance Officer",
+    code: "LCO001",
+    category: "professional",
+    level: 6,
+    seniority: "senior",
+    description: "Manages legal affairs and compliance",
+    departmentCode: "FINLEGAL",
+    responsibilities: [
+      "Review and draft legal contracts",
+      "Ensure regulatory compliance",
+      "Handle legal disputes",
+      "Provide legal guidance"
+    ]
+  },
+  // Human Resources Division
+  {
+    title: "HR Director",
+    code: "HRD001",
+    category: "management",
+    level: 7,
+    seniority: "senior",
+    description: "Leads HR strategy and operations",
+    departmentCode: "HR",
+    responsibilities: [
+      "Develop HR strategy and policies",
+      "Lead HR team and initiatives",
+      "Manage employee relations",
+      "Drive organizational development"
+    ]
+  },
+  {
+    title: "HR Manager",
+    code: "HRM001",
+    category: "management",
+    level: 5,
+    seniority: "mid",
+    description: "Manages HR operations and programs",
+    departmentCode: "HR",
+    responsibilities: [
+      "Manage HR programs and processes",
+      "Handle employee issues",
+      "Coordinate with department managers",
+      "Ensure HR compliance"
+    ]
+  },
+  {
+    title: "Talent Acquisition / Recruiter",
+    code: "TA001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Manages recruitment and talent acquisition",
+    departmentCode: "HR",
+    responsibilities: [
+      "Source and screen candidates",
+      "Manage recruitment process",
+      "Build talent pipeline",
+      "Coordinate interviews"
+    ]
+  },
+  {
+    title: "HR Executive",
+    code: "HRE001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Handles HR administrative tasks",
+    departmentCode: "HR",
+    responsibilities: [
+      "Maintain employee records",
+      "Handle HR documentation",
+      "Support HR processes",
+      "Assist with employee inquiries"
+    ]
+  },
+  {
+    title: "Training & Development Specialist",
+    code: "TDS001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Manages employee training and development programs",
+    departmentCode: "HR",
+    responsibilities: [
+      "Design training programs",
+      "Conduct training sessions",
+      "Assess training needs",
+      "Measure training effectiveness"
+    ]
+  },
+  {
+    title: "Employee Relations Specialist",
+    code: "ERS001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Manages employee relations and engagement",
+    departmentCode: "HR",
+    responsibilities: [
+      "Handle employee grievances",
+      "Facilitate conflict resolution",
+      "Promote employee engagement",
+      "Conduct exit interviews"
+    ]
+  },
+  // Customer Support & Operations Division
+  {
+    title: "Director of Customer Experience",
+    code: "DCE001",
+    category: "management",
+    level: 7,
+    seniority: "senior",
+    description: "Leads customer experience and support strategy",
+    departmentCode: "CUSTOPS",
+    responsibilities: [
+      "Define customer experience strategy",
+      "Lead support and operations teams",
+      "Monitor customer satisfaction",
+      "Drive service improvements"
+    ]
+  },
+  {
+    title: "Support Manager",
+    code: "SPM001",
+    category: "management",
+    level: 5,
+    seniority: "mid",
+    description: "Manages customer support operations",
+    departmentCode: "CUSTOPS",
+    responsibilities: [
+      "Manage support team and processes",
+      "Monitor support metrics",
+      "Handle escalated issues",
+      "Improve support efficiency"
+    ]
+  },
+  {
+    title: "Technical Support Engineer",
+    code: "TSE001",
+    category: "professional",
+    level: 4,
+    seniority: "mid",
+    description: "Provides technical support to customers",
+    departmentCode: "CUSTOPS",
+    responsibilities: [
+      "Resolve technical customer issues",
+      "Provide product guidance",
+      "Document solutions",
+      "Escalate complex problems"
+    ]
+  },
+  {
+    title: "Customer Support Agent",
+    code: "CSA001",
+    category: "support",
+    level: 2,
+    seniority: "junior",
+    description: "Provides first-line customer support",
+    departmentCode: "CUSTOPS",
+    responsibilities: [
+      "Handle customer inquiries",
+      "Resolve basic issues",
+      "Maintain customer records",
+      "Follow support procedures"
+    ]
+  },
+  {
+    title: "Operations Manager",
+    code: "OM001",
+    category: "management",
+    level: 6,
+    seniority: "senior",
+    description: "Manages operational processes and efficiency",
+    departmentCode: "CUSTOPS",
+    responsibilities: [
+      "Optimize operational processes",
+      "Manage operational metrics",
+      "Coordinate cross-functional projects",
+      "Drive operational excellence"
+    ]
+  },
+  {
+    title: "Operations Specialist",
+    code: "OS001",
+    category: "professional",
+    level: 3,
+    seniority: "mid",
+    description: "Supports operational activities and processes",
+    departmentCode: "CUSTOPS",
+    responsibilities: [
+      "Execute operational procedures",
+      "Monitor process performance",
+      "Support process improvements",
+      "Handle operational tasks"
+    ]
+  }
+];
+
+// Function to create technology departments and roles
+const createTechnologyTemplates = async (orgId: string) => {
+  console.log("Creating technology templates for organization:", orgId);
+  
+  try {
+    const batch = writeBatch(db);
+    const departmentIdMap: Record<string, string> = {};
+    const timestamp = new Date().toISOString();
+    
+    // Step 1: Create departments first (parents before children)
+    console.log("Creating departments...");
+    
+    // First pass: Create all departments and collect their IDs
+    for (const deptTemplate of TECH_DEPARTMENTS) {
+      const deptRef = doc(collection(db, "organizations", orgId, "departments"));
+      departmentIdMap[deptTemplate.code] = deptRef.id;
+    }
+    
+    // Second pass: Create department documents with proper parent references
+    for (const deptTemplate of TECH_DEPARTMENTS) {
+      const deptRef = doc(db, "organizations", orgId, "departments", departmentIdMap[deptTemplate.code]);
+      
+      const departmentData = {
+        name: deptTemplate.name,
+        code: deptTemplate.code,
+        type: deptTemplate.type,
+        description: deptTemplate.description,
+        parentId: deptTemplate.parentId ? departmentIdMap[deptTemplate.parentId] : null,
+        status: "active" as const,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        budget: 0,
+        currency: "USD",
+        workingHours: "9:00 AM - 5:00 PM",
+        flexibleHours: true,
+        reportingSchedule: "monthly"
+      };
+      
+      batch.set(deptRef, departmentData);
+    }
+    
+    // Step 2: Create roles and assign to departments
+    console.log("Creating roles...");
+    for (const roleTemplate of TECH_ROLES) {
+      const roleRef = doc(collection(db, "organizations", orgId, "roles"));
+      const departmentId = departmentIdMap[roleTemplate.departmentCode];
+      
+      if (!departmentId) {
+        console.warn(`Department not found for role ${roleTemplate.title}, skipping...`);
+        continue;
+      }
+      
+      const roleData = {
+        title: roleTemplate.title,
+        code: roleTemplate.code,
+        category: roleTemplate.category,
+        level: roleTemplate.level,
+        seniority: roleTemplate.seniority,
+        description: roleTemplate.description,
+        responsibilities: roleTemplate.responsibilities,
+        primaryDepartmentId: departmentId,
+        departmentIds: [departmentId],
+        requiredSkills: [],
+        educationalRequirements: {
+          minimumLevel: "bachelor",
+          preferredDegrees: [],
+          certifications: []
+        },
+        experienceRequirements: {
+          minimumYears: roleTemplate.level <= 2 ? 0 : roleTemplate.level <= 4 ? 2 : roleTemplate.level <= 6 ? 5 : 8,
+          industryExperience: ["Technology"],
+          leadershipExperience: roleTemplate.category === "management" || roleTemplate.category === "executive",
+          specificExperience: []
+        },
+        compensation: {
+          salaryRange: {
+            min: Math.max(40000, roleTemplate.level * 15000),
+            max: Math.max(60000, roleTemplate.level * 25000),
+            currency: "USD",
+            frequency: "annually"
+          },
+          grade: `L${roleTemplate.level}`,
+          benefits: ["Health Insurance", "Dental Insurance", "401k", "PTO"],
+          stockOptions: roleTemplate.level >= 5,
+          equity: roleTemplate.level >= 7 ? 0.1 : 0
+        },
+        reportingStructure: {
+          reportsTo: [],
+          directReports: [],
+          teamSize: { min: 0, max: roleTemplate.category === "management" ? 10 : 0 },
+          collaborationRequirements: []
+        },
+        performanceMetrics: [],
+        careerProgression: {
+          nextLevelRoles: [],
+          skillDevelopmentRequirements: [],
+          timelineExpectations: "12-24 months for next level progression"
+        },
+        trainingRequirements: [],
+        status: "active" as const,
+        employeeCount: 0,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        createdBy: auth.currentUser?.uid || ""
+      };
+      
+      batch.set(roleRef, roleData);
+    }
+    
+    // Commit all changes
+    console.log("Committing batch write...");
+    await batch.commit();
+    console.log(`Successfully created ${TECH_DEPARTMENTS.length} departments and ${TECH_ROLES.length} roles`);
+    
+  } catch (error) {
+    console.error("Error creating technology templates:", error);
+    throw error;
+  }
+};
 
 export default function CompanySetupPage() {
   const router = useRouter();
@@ -474,6 +1793,13 @@ export default function CompanySetupPage() {
         setupCompleted: true,
         setupCompletedAt: new Date()
       });
+
+      // Create technology templates if industry is Technology
+      if (companyInfo.industry === "Technology") {
+        console.log("Industry is Technology, creating predefined departments and roles...");
+        await createTechnologyTemplates(orgId);
+        console.log("Technology templates created successfully");
+      }
 
       console.log("Organization updated successfully, redirecting to /admin...");
       // Redirect to admin dashboard
