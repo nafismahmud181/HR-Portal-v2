@@ -118,6 +118,43 @@ export default function EmployeeOnboardingPage() {
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [fieldConfig, setFieldConfig] = useState<OnboardingFieldConfig | null>(null);
 
+  // Helper function to set default field configuration
+  const setDefaultFieldConfig = () => {
+    setFieldConfig({
+      personalInformation: {
+        personalEmail: { enabled: true, required: true, label: "Personal Email" },
+        personalPhone: { enabled: true, required: true, label: "Personal Phone Number" },
+        dateOfBirth: { enabled: true, required: true, label: "Date of Birth" },
+        gender: { enabled: true, required: false, label: "Gender" },
+        maritalStatus: { enabled: true, required: false, label: "Marital Status" },
+        nationality: { enabled: true, required: true, label: "Nationality" },
+        profilePhoto: { enabled: true, required: false, label: "Profile Photo" }
+      },
+      addressInformation: {
+        currentAddress: { enabled: true, required: true, label: "Current Address" },
+        permanentAddress: { enabled: true, required: true, label: "Permanent Address" },
+        sameAsCurrent: { enabled: true, required: false, label: "Same as Current Address" }
+      },
+      emergencyContacts: {
+        primaryEmergencyContact: { enabled: true, required: true, label: "Primary Emergency Contact" },
+        secondaryEmergencyContact: { enabled: true, required: false, label: "Secondary Emergency Contact" }
+      },
+      bankingTaxInfo: {
+        bankDetails: { enabled: true, required: true, label: "Banking Information" },
+        taxInformation: { enabled: true, required: true, label: "Tax Information" }
+      },
+      documents: {
+        governmentId: { enabled: true, required: true, label: "Government ID" },
+        socialSecurityCard: { enabled: true, required: true, label: "Social Security Card" },
+        i9Documents: { enabled: true, required: true, label: "I-9 Verification Documents" },
+        directDepositForm: { enabled: true, required: true, label: "Direct Deposit Form" },
+        resume: { enabled: true, required: false, label: "Resume/CV" },
+        certifications: { enabled: true, required: false, label: "Certifications" },
+        transcripts: { enabled: true, required: false, label: "Education Transcripts" }
+      }
+    });
+  };
+
   const [formData, setFormData] = useState<OnboardingData>({
     personalEmail: "",
     personalPhone: "",
@@ -343,44 +380,18 @@ export default function EmployeeOnboardingPage() {
               const adminData = adminSettingsSnap.data();
               if (adminData.onboardingFieldConfig) {
                 setFieldConfig(adminData.onboardingFieldConfig as OnboardingFieldConfig);
+              } else {
+                // If document exists but no config, use defaults
+                setDefaultFieldConfig();
               }
+            } else {
+              // If no settings document exists, use defaults
+              setDefaultFieldConfig();
             }
           } catch (configError) {
             console.warn("Failed to load field configuration, using defaults:", configError);
             // Use default configuration if loading fails
-            setFieldConfig({
-              personalInformation: {
-                personalEmail: { enabled: true, required: true, label: "Personal Email" },
-                personalPhone: { enabled: true, required: true, label: "Personal Phone Number" },
-                dateOfBirth: { enabled: true, required: true, label: "Date of Birth" },
-                gender: { enabled: true, required: false, label: "Gender" },
-                maritalStatus: { enabled: true, required: false, label: "Marital Status" },
-                nationality: { enabled: true, required: true, label: "Nationality" },
-                profilePhoto: { enabled: true, required: false, label: "Profile Photo" }
-              },
-              addressInformation: {
-                currentAddress: { enabled: true, required: true, label: "Current Address" },
-                permanentAddress: { enabled: true, required: true, label: "Permanent Address" },
-                sameAsCurrent: { enabled: true, required: false, label: "Same as Current Address" }
-              },
-              emergencyContacts: {
-                primaryEmergencyContact: { enabled: true, required: true, label: "Primary Emergency Contact" },
-                secondaryEmergencyContact: { enabled: true, required: false, label: "Secondary Emergency Contact" }
-              },
-              bankingTaxInfo: {
-                bankDetails: { enabled: true, required: true, label: "Banking Information" },
-                taxInformation: { enabled: true, required: true, label: "Tax Information" }
-              },
-              documents: {
-                governmentId: { enabled: true, required: true, label: "Government ID" },
-                socialSecurityCard: { enabled: true, required: true, label: "Social Security Card" },
-                i9Documents: { enabled: true, required: true, label: "I-9 Verification Documents" },
-                directDepositForm: { enabled: true, required: true, label: "Direct Deposit Form" },
-                resume: { enabled: true, required: false, label: "Resume/CV" },
-                certifications: { enabled: true, required: false, label: "Certifications" },
-                transcripts: { enabled: true, required: false, label: "Education Transcripts" }
-              }
-            });
+            setDefaultFieldConfig();
           }
         }
       } catch (e) {
