@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collectionGroup, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import { collectionGroup, getDocs, query, where, doc, getDoc, updateDoc } from "firebase/firestore";
 import { FileMetadata } from "@/lib/file-upload";
 
 type EmployeeProfile = {
@@ -99,6 +99,11 @@ export default function EmployeeProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [editData, setEditData] = useState<EmployeeProfile | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -118,13 +123,17 @@ export default function EmployeeProfilePage() {
         }
         const membershipRef = snap.docs[0].ref;
         const parentOrg = membershipRef.parent.parent; // organizations/{orgId}
-        const orgId = parentOrg ? parentOrg.id : null;
-        if (!orgId) {
+        const foundOrgId = parentOrg ? parentOrg.id : null;
+        if (!foundOrgId) {
           setError("Organization not found.");
           setLoading(false);
           return;
         }
-        const empRef = doc(db, "organizations", orgId, "employees", user.uid);
+        
+        // Store userId and orgId for later use
+        setUserId(user.uid);
+        setOrgId(foundOrgId);
+        const empRef = doc(db, "organizations", foundOrgId, "employees", user.uid);
         const empSnap = await getDoc(empRef);
         if (!empSnap.exists()) {
           setError("Employee profile not found.");
@@ -238,12 +247,123 @@ export default function EmployeeProfilePage() {
 
   const { firstName, middleName, lastName } = getNameParts();
 
+  // Helper function to handle edit mode
+  const handleEditClick = (section: string) => {
+    if (editingSection === section) {
+      setEditingSection(null);
+      setEditData(null);
+    } else {
+      setEditingSection(section);
+      // Initialize editData with properly split name fields
+      const { firstName, middleName, lastName } = getNameParts();
+      setEditData({
+        ...profile,
+        firstName,
+        middleName,
+        lastName
+      });
+    }
+  };
+
+  // Helper function to handle input changes
+  const handleInputChange = (field: string, value: string) => {
+    if (!editData) return;
+    setEditData({
+      ...editData,
+      [field]: value
+    });
+  };
+
+  // Helper function to handle nested object changes
+  const handleNestedInputChange = (parentField: string, childField: string, value: string) => {
+    if (!editData) return;
+    const currentParentData = editData[parentField as keyof EmployeeProfile] as Record<string, unknown> || {};
+    setEditData({
+      ...editData,
+      [parentField]: {
+        ...currentParentData,
+        [childField]: value
+      }
+    });
+  };
+
+  // Helper function to save changes
+  const handleSave = async (section: string) => {
+    if (!editData || !profile || !userId || !orgId) return;
+    
+    setSaving(true);
+    setError("");
+    
+    try {
+      // Create a copy of editData without undefined fields for cleaner Firebase update
+      const updateData: Record<string, unknown> = {};
+      
+      // Only include fields that have been modified and are not undefined
+      Object.keys(editData).forEach(key => {
+        const value = editData[key as keyof EmployeeProfile];
+        if (value !== undefined && value !== null) {
+          updateData[key] = value;
+        }
+      });
+      
+      // Update the document in Firestore
+      const empRef = doc(db, "organizations", orgId, "employees", userId);
+      await updateDoc(empRef, updateData);
+      
+      // Update local state only after successful Firebase update
+      setProfile(editData);
+      setEditingSection(null);
+      setEditData(null);
+      
+      console.log(`Changes saved successfully for ${section} section`);
+      
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      setError(`Failed to save changes: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       <div className="max-w-[1440px] mx-auto px-6 py-6">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-[8px]">
+            <p className="text-red-600 text-[14px]">{error}</p>
+          </div>
+        )}
         {/* Personal Details Section */}
         <div className="bg-white rounded-[12px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)] mb-8">
-          <h2 className="text-[20px] font-[600] text-[#202124] mb-6">Personal Details</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-[20px] font-[600] text-[#202124]">Personal Details</h2>
+            {editingSection === 'personal' ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleSave('personal')}
+                  disabled={saving}
+                  className="px-4 py-2 bg-[#34A853] hover:bg-[#2D8F47] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => handleEditClick('personal')}
+                  disabled={saving}
+                  className="px-4 py-2 bg-[#EA4335] hover:bg-[#D33B2C] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleEditClick('personal')}
+                className="px-4 py-2 bg-[#4A90E2] hover:bg-[#357ABD] text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+              >
+                Edit
+              </button>
+            )}
+          </div>
           
           <div className="flex flex-col md:flex-row gap-8">
             {/* Left Side - Profile Picture and Name */}
@@ -271,47 +391,123 @@ export default function EmployeeProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Column 1 */}
                 <div className="space-y-4">
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">First Name</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(firstName)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">First Name</p>
+                    {editingSection === 'personal' ? (
+                      <input
+                        type="text"
+                        value={editData?.firstName || firstName || ''}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(firstName)}</p>
+                    )}
                   </div>
                   
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">Middle Name</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(middleName)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Middle Name</p>
+                    {editingSection === 'personal' ? (
+                      <input
+                        type="text"
+                        value={editData?.middleName || middleName || ''}
+                        onChange={(e) => handleInputChange('middleName', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(middleName)}</p>
+                    )}
                   </div>
                   
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">Last Name</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(lastName)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Last Name</p>
+                    {editingSection === 'personal' ? (
+                      <input
+                        type="text"
+                        value={editData?.lastName || lastName || ''}
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(lastName)}</p>
+                    )}
                   </div>
                   
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">Gender</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.gender)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Gender</p>
+                    {editingSection === 'personal' ? (
+                      <select
+                        value={editData?.gender || profile?.gender || ''}
+                        onChange={(e) => handleInputChange('gender', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.gender)}</p>
+                    )}
                   </div>
                 </div>
                 
                 {/* Column 2 */}
                 <div className="space-y-4">
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">Date of Birth</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.dateOfBirth || profile?.dob)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Date of Birth</p>
+                    {editingSection === 'personal' ? (
+                      <input
+                        type="date"
+                        value={editData?.dateOfBirth || editData?.dob || profile?.dateOfBirth || profile?.dob || ''}
+                        onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.dateOfBirth || profile?.dob)}</p>
+                    )}
                   </div>
                   
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">Nationality</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.nationality)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Nationality</p>
+                    {editingSection === 'personal' ? (
+                      <input
+                        type="text"
+                        value={editData?.nationality || profile?.nationality || ''}
+                        onChange={(e) => handleInputChange('nationality', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.nationality)}</p>
+                    )}
                   </div>
                   
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">Email Address</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.personalEmail || profile?.email)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Email Address</p>
+                    {editingSection === 'personal' ? (
+                      <input
+                        type="email"
+                        value={editData?.personalEmail || editData?.email || profile?.personalEmail || profile?.email || ''}
+                        onChange={(e) => handleInputChange('personalEmail', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.personalEmail || profile?.email)}</p>
+                    )}
                   </div>
                   
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-1">Phone Number</p>
-                    <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.personalPhone || profile?.phoneNumber)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Phone Number</p>
+                    {editingSection === 'personal' ? (
+                      <input
+                        type="tel"
+                        value={editData?.personalPhone || editData?.phoneNumber || profile?.personalPhone || profile?.phoneNumber || ''}
+                        onChange={(e) => handleInputChange('personalPhone', e.target.value)}
+                        className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.personalPhone || profile?.phoneNumber)}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -327,97 +523,197 @@ export default function EmployeeProfilePage() {
             <h2 className="text-[20px] font-[600] text-[#202124] mb-6">Job Details</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Job Title</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.jobTitle)}</p>
+              {/* Column 1 */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Job Title</p>
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.jobTitle)}</p>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Employment Type</p>
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.employeeType)}</p>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Compensation</p>
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.compensation)}</p>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Line Manager</p>
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.lineManager)}</p>
+                </div>
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Employment Type</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.employeeType)}</p>
-              </div>
-              
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Compensation</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.compensation)}</p>
-              </div>
-              
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Line Manager</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.lineManager)}</p>
-              </div>
-              
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Department</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.department)}</p>
-              </div>
-              
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Position</p>
-                <p className="text-[16px] text-[#202124]">—</p>
-              </div>
-              
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Work Email</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.workEmail)}</p>
-              </div>
-              
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Work Location</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.workLocation)}</p>
+              {/* Column 2 */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Department</p>
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.department)}</p>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Position</p>
+                  <p className="text-[16px] text-[#202124]">—</p>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Work Email</p>
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.workEmail)}</p>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <p className="text-[14px] font-[500] text-[#5F6368]">Work Location</p>
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.workLocation)}</p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Banking Details */}
           <div className="bg-white rounded-[12px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-            <h2 className="text-[20px] font-[600] text-[#202124] mb-6">Payment Details</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-[20px] font-[600] text-[#202124]">Payment Details</h2>
+              {editingSection === 'payment' ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleSave('payment')}
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#34A853] hover:bg-[#2D8F47] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => handleEditClick('payment')}
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#EA4335] hover:bg-[#D33B2C] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleEditClick('payment')}
+                  className="px-4 py-2 bg-[#4A90E2] hover:bg-[#357ABD] text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             
-            <div className="space-y-6">
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Bank Name</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.bankDetails?.bankName || profile?.bankName)}</p>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Bank Name</p>
+                {editingSection === 'payment' ? (
+                  <input
+                    type="text"
+                    value={editData?.bankDetails?.bankName || editData?.bankName || profile?.bankDetails?.bankName || profile?.bankName || ''}
+                    onChange={(e) => handleNestedInputChange('bankDetails', 'bankName', e.target.value)}
+                    className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.bankDetails?.bankName || profile?.bankName)}</p>
+                )}
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Account Name</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.accountName)}</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Account Name</p>
+                {editingSection === 'payment' ? (
+                  <input
+                    type="text"
+                    value={editData?.accountName || profile?.accountName || ''}
+                    onChange={(e) => handleInputChange('accountName', e.target.value)}
+                    className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.accountName)}</p>
+                )}
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Account Type</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.bankDetails?.accountType)}</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Account Type</p>
+                {editingSection === 'payment' ? (
+                  <select
+                    value={editData?.bankDetails?.accountType || profile?.bankDetails?.accountType || ''}
+                    onChange={(e) => handleNestedInputChange('bankDetails', 'accountType', e.target.value)}
+                    className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                  >
+                    <option value="">Select Account Type</option>
+                    <option value="Checking">Checking</option>
+                    <option value="Savings">Savings</option>
+                    <option value="Business">Business</option>
+                  </select>
+                ) : (
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.bankDetails?.accountType)}</p>
+                )}
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Routing Number</p>
-                <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.bankDetails?.routingNumber)}</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Routing Number</p>
+                {editingSection === 'payment' ? (
+                  <input
+                    type="text"
+                    value={editData?.bankDetails?.routingNumber || profile?.bankDetails?.routingNumber || ''}
+                    onChange={(e) => handleNestedInputChange('bankDetails', 'routingNumber', e.target.value)}
+                    className="text-[16px] text-[#202124] px-2 py-1 border border-[#DADCE0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.bankDetails?.routingNumber)}</p>
+                )}
               </div>
             </div>
           </div>
 
           {/* Address Information */}
           <div className="bg-white rounded-[12px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-            <h2 className="text-[20px] font-[600] text-[#202124] mb-6">Address</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-[20px] font-[600] text-[#202124]">Address</h2>
+              {editingSection === 'address' ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleSave('address')}
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#34A853] hover:bg-[#2D8F47] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => handleEditClick('address')}
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#EA4335] hover:bg-[#D33B2C] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleEditClick('address')}
+                  className="px-4 py-2 bg-[#4A90E2] hover:bg-[#357ABD] text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             
-            <div className="space-y-6">
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Current Address</p>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Current Address</p>
                 <p className="text-[16px] text-[#202124]">{formatAddress(profile?.currentAddress)}</p>
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Permanent Address</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Permanent Address</p>
                 <p className="text-[16px] text-[#202124]">{formatAddress(profile?.permanentAddress)}</p>
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Primary Address</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Primary Address</p>
                 <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.primaryAddress || profile?.presentAddress)}</p>
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">State</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">State</p>
                 <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.currentAddress?.state || profile?.permanentAddress?.state || profile?.state)}</p>
               </div>
             </div>
@@ -428,27 +724,54 @@ export default function EmployeeProfilePage() {
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Emergency Contacts */}
           <div className="bg-white rounded-[12px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-            <h2 className="text-[20px] font-[600] text-[#202124] mb-6">Emergency Contacts</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-[20px] font-[600] text-[#202124]">Emergency Contacts</h2>
+              {editingSection === 'emergency' ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleSave('emergency')}
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#34A853] hover:bg-[#2D8F47] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => handleEditClick('emergency')}
+                    disabled={saving}
+                    className="px-4 py-2 bg-[#EA4335] hover:bg-[#D33B2C] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleEditClick('emergency')}
+                  className="px-4 py-2 bg-[#4A90E2] hover:bg-[#357ABD] text-white text-[14px] font-[500] rounded-[8px] transition-colors duration-200"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Primary Emergency Contact */}
               <div>
                 <h3 className="text-[16px] font-[500] text-[#202124] mb-4">Primary Contact</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Name</p>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Name</p>
                     <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.primaryEmergencyContact?.name || profile?.emergencyContactName)}</p>
                   </div>
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Relationship</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Relationship</p>
                     <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.primaryEmergencyContact?.relationship || profile?.emergencyContactRelation)}</p>
                   </div>
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Phone</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Phone</p>
                     <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.primaryEmergencyContact?.phone || profile?.emergencyContactPhone)}</p>
                   </div>
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Email</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Email</p>
                     <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.primaryEmergencyContact?.email)}</p>
                   </div>
                 </div>
@@ -458,21 +781,21 @@ export default function EmployeeProfilePage() {
               {profile?.secondaryEmergencyContact?.name && (
                 <div>
                   <h3 className="text-[16px] font-[500] text-[#202124] mb-4">Secondary Contact</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Name</p>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <p className="text-[14px] font-[500] text-[#5F6368]">Name</p>
                       <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.secondaryEmergencyContact?.name)}</p>
                     </div>
-                    <div>
-                      <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Relationship</p>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[14px] font-[500] text-[#5F6368]">Relationship</p>
                       <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.secondaryEmergencyContact?.relationship)}</p>
                     </div>
-                    <div>
-                      <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Phone</p>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[14px] font-[500] text-[#5F6368]">Phone</p>
                       <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.secondaryEmergencyContact?.phone)}</p>
                     </div>
-                    <div>
-                      <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Email</p>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[14px] font-[500] text-[#5F6368]">Email</p>
                       <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.secondaryEmergencyContact?.email)}</p>
                     </div>
                   </div>
@@ -485,24 +808,24 @@ export default function EmployeeProfilePage() {
           <div className="bg-white rounded-[12px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <h2 className="text-[20px] font-[600] text-[#202124] mb-6">Tax Information</h2>
             
-            <div className="space-y-6">
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">SSN</p>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">SSN</p>
                 <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.taxInformation?.ssn)}</p>
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Tax Filing Status</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Tax Filing Status</p>
                 <p className="text-[16px] text-[#202124]">{getDisplayValue(profile?.taxInformation?.taxFilingStatus)}</p>
               </div>
               
-              <div>
-                <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Allowances</p>
+              <div className="flex justify-between items-center">
+                <p className="text-[14px] font-[500] text-[#5F6368]">Allowances</p>
                 <p className="text-[16px] text-[#202124]">{profile?.taxInformation?.allowances || "—"}</p>
               </div>
             </div>
           </div>
-        </div>
+      </div>
 
         {/* Documents Section */}
         {(profile?.documents?.governmentId || profile?.documents?.resume || profile?.documents?.certifications) && (
@@ -510,38 +833,38 @@ export default function EmployeeProfilePage() {
             <div className="bg-white rounded-[12px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
               <h2 className="text-[20px] font-[600] text-[#202124] mb-6">Documents</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-4">
                 {profile?.documents?.governmentId && (
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Government ID</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Government ID</p>
                     <p className="text-[16px] text-[#202124]">✓ Uploaded</p>
                   </div>
                 )}
                 
                 {profile?.documents?.socialSecurityCard && (
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Social Security Card</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Social Security Card</p>
                     <p className="text-[16px] text-[#202124]">✓ Uploaded</p>
                   </div>
                 )}
                 
                 {profile?.documents?.resume && (
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Resume/CV</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Resume/CV</p>
                     <p className="text-[16px] text-[#202124]">✓ Uploaded</p>
                   </div>
                 )}
                 
                 {profile?.documents?.certifications && (
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Certifications</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Certifications</p>
                     <p className="text-[16px] text-[#202124]">✓ Uploaded</p>
                   </div>
                 )}
                 
                 {profile?.documents?.transcripts && (
-                  <div>
-                    <p className="text-[14px] font-[500] text-[#5F6368] mb-2">Transcripts</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] font-[500] text-[#5F6368]">Transcripts</p>
                     <p className="text-[16px] text-[#202124]">✓ Uploaded</p>
                   </div>
                 )}
