@@ -1,0 +1,268 @@
+{
+  "designSystem": {
+    "name": "Modern Productivity Dashboard",
+    "version": "1.0.0",
+    "description": "Clean, minimal design system for productivity and time management applications"
+  },
+  
+  "colorPalette": {
+    "primary": {
+      "brand": "#4A90E2",
+      "brandLight": "#6BA3E8",
+      "brandDark": "#357ABD"
+    },
+    "secondary": {
+      "accent": "#00D4AA",
+      "warning": "#FFB84D",
+      "error": "#FF6B6B"
+    },
+    "neutral": {
+      "white": "#FFFFFF",
+      "gray50": "#F8F9FA",
+      "gray100": "#F1F3F4",
+      "gray200": "#E8EAED",
+      "gray300": "#DADCE0",
+      "gray400": "#9AA0A6",
+      "gray500": "#5F6368",
+      "gray600": "#3C4043",
+      "gray700": "#202124",
+      "black": "#000000"
+    },
+    "background": {
+      "primary": "#F5F6FA",
+      "secondary": "#FFFFFF",
+      "card": "#FFFFFF",
+      "overlay": "rgba(0, 0, 0, 0.05)"
+    }
+  },
+
+  "typography": {
+    "fontFamily": {
+      "primary": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      "monospace": "'SF Mono', 'Monaco', 'Inconsolata', monospace"
+    },
+    "fontSize": {
+      "xs": "12px",
+      "sm": "14px",
+      "base": "16px",
+      "lg": "18px",
+      "xl": "20px",
+      "2xl": "24px",
+      "3xl": "30px"
+    },
+    "fontWeight": {
+      "normal": "400",
+      "medium": "500",
+      "semibold": "600",
+      "bold": "700"
+    },
+    "lineHeight": {
+      "tight": "1.2",
+      "normal": "1.5",
+      "relaxed": "1.6"
+    }
+  },
+
+  "spacing": {
+    "scale": "8px base unit",
+    "values": {
+      "xs": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "32px",
+      "2xl": "48px",
+      "3xl": "64px"
+    }
+  },
+
+  "borderRadius": {
+    "none": "0px",
+    "sm": "4px",
+    "md": "8px",
+    "lg": "12px",
+    "xl": "16px",
+    "full": "9999px"
+  },
+
+  "shadows": {
+    "none": "none",
+    "sm": "0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)",
+    "md": "0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06)",
+    "lg": "0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05)",
+    "card": "0 2px 8px rgba(0, 0, 0, 0.06)"
+  },
+
+  "layout": {
+    "structure": {
+      "type": "sidebar + main content",
+      "sidebarWidth": "240px",
+      "headerHeight": "60px",
+      "contentPadding": "24px"
+    },
+    "grid": {
+      "columns": 12,
+      "gap": "24px",
+      "containerMaxWidth": "1440px"
+    }
+  },
+
+  "components": {
+    "sidebar": {
+      "width": "240px",
+      "backgroundColor": "white",
+      "shadow": "card",
+      "borderRadius": "none",
+      "padding": "16px",
+      "navigation": {
+        "itemHeight": "44px",
+        "itemPadding": "12px 16px",
+        "itemBorderRadius": "8px",
+        "activeBackground": "gray100",
+        "hoverBackground": "gray50"
+      }
+    },
+
+    "card": {
+      "backgroundColor": "white",
+      "borderRadius": "lg",
+      "shadow": "card",
+      "padding": "24px",
+      "border": "none"
+    },
+
+    "table": {
+      "headerBackground": "gray50",
+      "headerTextColor": "gray600",
+      "headerFontWeight": "medium",
+      "rowHeight": "52px",
+      "cellPadding": "12px 16px",
+      "borderColor": "gray200",
+      "zebra": false
+    },
+
+    "button": {
+      "primary": {
+        "backgroundColor": "brand",
+        "color": "white",
+        "borderRadius": "md",
+        "padding": "10px 16px",
+        "fontWeight": "medium",
+        "hover": {
+          "backgroundColor": "brandDark"
+        }
+      },
+      "secondary": {
+        "backgroundColor": "gray100",
+        "color": "gray700",
+        "borderRadius": "md",
+        "padding": "10px 16px",
+        "fontWeight": "medium",
+        "hover": {
+          "backgroundColor": "gray200"
+        }
+      }
+    },
+
+    "input": {
+      "backgroundColor": "white",
+      "border": "1px solid gray300",
+      "borderRadius": "md",
+      "padding": "10px 12px",
+      "fontSize": "base",
+      "focus": {
+        "borderColor": "brand",
+        "outline": "none",
+        "shadow": "0 0 0 3px rgba(74, 144, 226, 0.1)"
+      }
+    },
+
+    "dropdown": {
+      "backgroundColor": "white",
+      "border": "1px solid gray300",
+      "borderRadius": "md",
+      "shadow": "lg",
+      "padding": "8px 0",
+      "item": {
+        "padding": "8px 12px",
+        "fontSize": "base",
+        "hover": {
+          "backgroundColor": "gray50"
+        }
+      }
+    },
+
+    "calendar": {
+      "backgroundColor": "white",
+      "borderRadius": "lg",
+      "shadow": "card",
+      "padding": "16px",
+      "daySize": "40px",
+      "dayBorderRadius": "md",
+      "activeBackground": "brand",
+      "activeColor": "white",
+      "todayBackground": "gray100"
+    },
+
+    "charts": {
+      "barChart": {
+        "primaryColor": "brand",
+        "backgroundColor": "brandLight",
+        "gridColor": "gray200",
+        "textColor": "gray600"
+      },
+      "donutChart": {
+        "colors": ["brand", "accent", "warning"],
+        "strokeWidth": "8px",
+        "centerTextSize": "2xl",
+        "centerTextWeight": "bold"
+      }
+    }
+  },
+
+  "designPrinciples": {
+    "visual": {
+      "cleanMinimalism": "Emphasize whitespace and clean lines",
+      "subtleDepth": "Use gentle shadows and layering instead of strong borders",
+      "consistentSpacing": "Maintain 8px grid system throughout",
+      "functionalColor": "Use color purposefully for status and hierarchy"
+    },
+    "interaction": {
+      "gentleHovers": "Subtle state changes on interaction",
+      "smoothTransitions": "200ms ease transitions for state changes",
+      "clearHierarchy": "Visual hierarchy through typography and spacing",
+      "accessibleContrast": "Maintain WCAG AA contrast ratios"
+    }
+  },
+
+  "patterns": {
+    "dataVisualization": {
+      "approach": "Clean, colorful charts with clear labeling",
+      "colors": "Use brand colors consistently across charts",
+      "typography": "Clear, readable labels and values"
+    },
+    "timeTracking": {
+      "timeFormat": "Use consistent time formatting (HH:MM)",
+      "durationDisplay": "Show duration in hours and minutes",
+      "statusIndicators": "Use color coding for different states"
+    },
+    "scheduling": {
+      "timeSlots": "Clear time blocks with consistent spacing",
+      "eventCards": "Rounded cards with colored left borders",
+      "calendarGrid": "Clean grid with subtle borders"
+    }
+  },
+
+  "responsive": {
+    "breakpoints": {
+      "mobile": "768px",
+      "tablet": "1024px",
+      "desktop": "1440px"
+    },
+    "behavior": {
+      "sidebar": "Collapse to icon-only on mobile",
+      "tables": "Horizontal scroll on mobile",
+      "cards": "Stack vertically on smaller screens"
+    }
+  }
+}
