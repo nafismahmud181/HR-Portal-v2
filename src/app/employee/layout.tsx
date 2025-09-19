@@ -15,6 +15,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const [checkingAuth, setCheckingAuth] = useState(true);
   const pathname = usePathname();
   const [notFound] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -116,45 +117,93 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const isOnboardingPage = pathname === "/employee/onboarding";
 
   return (
-    <div className={`min-h-screen bg-[#ffffff] text-[#1a1a1a] ${isOnboardingPage ? 'grid grid-cols-1' : 'grid grid-cols-1 md:grid-cols-[260px_1fr]'}`}>
+    <div className="min-h-screen bg-[#ffffff] text-[#1a1a1a]">
       {!isOnboardingPage && (
-        <aside className="border-r border-[#e5e7eb] p-4 md:p-6">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
-            <span className="text-[16px] font-semibold">HRMSTech</span>
-          </Link>
-          <nav className="mt-6 space-y-1">
-            {nav.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`block px-3 py-2 rounded-md text-[14px] ${active ? "bg-[#f97316]/10 text-[#1f2937] border border-[#f97316]/30" : "text-[#374151] hover:bg-[#f9fafb] border border-transparent"}`}
-                >
-                  {item.label}
+        <>
+          {/* Mobile sidebar overlay */}
+          {sidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          
+          {/* Sidebar */}
+          <aside className={`fixed left-0 top-0 h-full w-[260px] border-r border-[#e5e7eb] bg-white z-30 overflow-y-auto transform transition-transform duration-300 ease-in-out ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          } md:translate-x-0`}>
+            <div className="p-4 md:p-6">
+              {/* Mobile close button */}
+              <div className="flex items-center justify-between mb-4 md:hidden">
+                <Link href="/" className="inline-flex items-center gap-2">
+                  <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
+                  <span className="text-[16px] font-semibold">HRMSTech</span>
                 </Link>
-              );
-            })}
-          </nav>
-          <div className="mt-6 pt-6 border-t border-[#e5e7eb]">
-            <button
-              type="button"
-              className="w-full text-left px-3 py-2 rounded-md text-[14px] text-[#374151] border border-[#d1d5db] hover:bg-[#f9fafb]"
-              onClick={async () => {
-                try {
-                  await signOut(auth);
-                } finally {
-                  router.replace("/login");
-                }
-              }}
-            >
-              Log out
-            </button>
-          </div>
-        </aside>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 rounded-md hover:bg-gray-100"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Desktop logo */}
+              <div className="hidden md:block">
+                <Link href="/" className="inline-flex items-center gap-2">
+                  <Image src="/images/logo/logo.png" alt="HRMSTech Logo" width={20} height={20} className="rounded" />
+                  <span className="text-[16px] font-semibold">HRMSTech</span>
+                </Link>
+              </div>
+              
+              <nav className="mt-6 space-y-1">
+                {nav.map((item) => {
+                  const active = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`block px-3 py-2 rounded-md text-[14px] transition-colors duration-200 ${active ? "bg-[#f97316]/10 text-[#1f2937] border border-[#f97316]/30" : "text-[#374151] hover:bg-[#f9fafb] border border-transparent"}`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="mt-6 pt-6 border-t border-[#e5e7eb]">
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 rounded-md text-[14px] text-[#374151] border border-[#d1d5db] hover:bg-[#f9fafb] transition-colors duration-200"
+                  onClick={async () => {
+                    try {
+                      await signOut(auth);
+                    } finally {
+                      router.replace("/login");
+                    }
+                  }}
+                >
+                  Log out
+                </button>
+              </div>
+            </div>
+          </aside>
+          
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="fixed top-4 left-4 z-40 p-2 rounded-md bg-white border border-gray-200 shadow-md md:hidden"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </>
       )}
-      <main className={isOnboardingPage ? "w-full" : ""}>{children}</main>
+      <main className={`${isOnboardingPage ? "w-full" : "ml-0 md:ml-[260px]"}`}>
+        {children}
+      </main>
     </div>
   );
 }
