@@ -22,6 +22,35 @@ type Employee = {
   dob?: string; // ISO date for birthday filters
 };
 
+// Additional type definitions for nested data structures
+interface EmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+  email: string;
+}
+
+interface BankDetails {
+  bankName: string;
+  accountNumber: string;
+  routingNumber: string;
+  accountType: string;
+}
+
+interface EmployeeData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  department: string;
+  status: string;
+  primaryEmergencyContact?: EmergencyContact;
+  secondaryEmergencyContact?: EmergencyContact;
+  bankDetails?: BankDetails;
+  [key: string]: unknown; // For other dynamic properties
+}
+
 type SortKey = keyof Pick<
   Employee,
   | "name"
@@ -133,6 +162,9 @@ export default function EmployeesPage() {
   const [viewError, setViewError] = useState("");
   const [savingView, setSavingView] = useState(false);
   const [deletingEmpId, setDeletingEmpId] = useState<string | null>(null);
+  
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -457,6 +489,25 @@ export default function EmployeesPage() {
     }
   }
 
+  const openEditModal = async (empId: string) => {
+    if (!orgId) return;
+    setIsEditMode(true);
+    setViewEmpId(empId);
+    setViewTab("personal");
+    setViewError("");
+    setViewLoading(true);
+    try {
+      const empRef = doc(db, "organizations", orgId, "employees", empId);
+      const empSnap = await getDoc(empRef);
+      setViewEmp(empSnap.exists() ? (empSnap.data() as Record<string, unknown>) : null);
+    } catch (err: unknown) {
+      setViewError(err instanceof Error ? err.message : "Failed to load profile");
+    } finally {
+      setViewLoading(false);
+    }
+    setViewOpen(true);
+  };
+
   return (
     <div className="px-6 py-8">
       {/* Header */}
@@ -629,6 +680,7 @@ export default function EmployeesPage() {
                       <div className="flex items-center gap-2">
                         <button className="text-[#374151] hover:underline" onClick={async () => {
                           if (!orgId) return;
+                          setIsEditMode(false);
                           setViewTab("personal");
                           setViewError("");
                           setViewLoading(true);
@@ -644,7 +696,7 @@ export default function EmployeesPage() {
                             setViewLoading(false);
                           }
                         }}>View</button>
-                        <button className="text-[#374151] hover:underline">Edit</button>
+                        <button className="text-[#374151] hover:underline" onClick={() => openEditModal(e.id)}>Edit</button>
                         <button className="text-[#b91c1c] hover:underline" disabled={deletingEmpId === e.id} onClick={() => deleteEmployee(e.id)}>{deletingEmpId === e.id ? "Deleting…" : "Delete"}</button>
                       </div>
                     </td>
@@ -681,8 +733,25 @@ export default function EmployeesPage() {
                     <div><span className="text-[#6b7280]">Hire Date:</span> {new Date(e.hireDate).toLocaleDateString()}</div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
-                    <button className="text-[#374151] hover:underline">View</button>
-                    <button className="text-[#374151] hover:underline">Edit</button>
+                    <button className="text-[#374151] hover:underline" onClick={async () => {
+                      if (!orgId) return;
+                      setIsEditMode(false);
+                      setViewTab("personal");
+                      setViewError("");
+                      setViewLoading(true);
+                      setViewOpen(true);
+                      setViewEmpId(e.id);
+                      try {
+                        const empRef = doc(db, "organizations", orgId, "employees", e.id);
+                        const empSnap = await getDoc(empRef);
+                        setViewEmp(empSnap.exists() ? (empSnap.data() as Record<string, unknown>) : null);
+                      } catch (err: unknown) {
+                        setViewError(err instanceof Error ? err.message : "Failed to load profile");
+                      } finally {
+                        setViewLoading(false);
+                      }
+                    }}>View</button>
+                    <button className="text-[#374151] hover:underline" onClick={() => openEditModal(e.id)}>Edit</button>
                     <button className="text-[#b91c1c] hover:underline" disabled={deletingEmpId === e.id} onClick={() => deleteEmployee(e.id)}>{deletingEmpId === e.id ? "Deleting…" : "Delete"}</button>
                   </div>
                 </div>
@@ -733,7 +802,7 @@ export default function EmployeesPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => (!savingView ? setViewOpen(false) : null)} />
           <div className="relative bg-white rounded-lg shadow-lg w-[95vw] max-w-[1024px] border border-[#e5e7eb]">
             <div className="p-5 border-b border-[#e5e7eb] flex items-center justify-between">
-              <h2 className="text-[16px] font-semibold">Employee Profile</h2>
+              <h2 className="text-[16px] font-semibold">{isEditMode ? "Edit Employee Profile" : "Employee Profile"}</h2>
               <button className="text-[14px] text-[#374151]" onClick={() => (!savingView ? setViewOpen(false) : null)}>Close</button>
             </div>
 
@@ -766,64 +835,97 @@ export default function EmployeesPage() {
               ) : viewEmp ? (
                 <div className="mt-5">
                   {viewTab === "personal" ? (
-                    <form
-                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!orgId || !viewEmpId) return;
-                        setViewError("");
-                        setSavingView(true);
-                        try {
-                          const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
-                          await updateDoc(empRef, {
-                            name: (viewEmp["name"] as string) ?? "",
-                            email: (viewEmp["email"] as string) ?? "",
-                            phoneNumber: (viewEmp["phoneNumber"] as string) ?? "",
-                            dob: (viewEmp["dob"] as string) ?? "",
-                            nidNumber: (viewEmp["nidNumber"] as string) ?? "",
-                            passportNumber: (viewEmp["passportNumber"] as string) ?? "",
-                            presentAddress: (viewEmp["presentAddress"] as string) ?? "",
-                          });
-                        } catch (err: unknown) {
-                          setViewError(err instanceof Error ? err.message : "Failed to save");
-                        } finally {
-                          setSavingView(false);
-                        }
-                      }}
-                    >
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Full name</label>
-                        <input value={(viewEmp["name"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), name: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                    isEditMode ? (
+                      <form
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!orgId || !viewEmpId) return;
+                          setViewError("");
+                          setSavingView(true);
+                          try {
+                            const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
+                            await updateDoc(empRef, {
+                              name: (viewEmp["name"] as string) ?? "",
+                              email: (viewEmp["email"] as string) ?? "",
+                              phoneNumber: (viewEmp["phoneNumber"] as string) ?? "",
+                              dob: (viewEmp["dob"] as string) ?? "",
+                              nidNumber: (viewEmp["nidNumber"] as string) ?? "",
+                              passportNumber: (viewEmp["passportNumber"] as string) ?? "",
+                              presentAddress: (viewEmp["presentAddress"] as string) ?? "",
+                            });
+                          } catch (err: unknown) {
+                            setViewError(err instanceof Error ? err.message : "Failed to save");
+                          } finally {
+                            setSavingView(false);
+                          }
+                        }}
+                      >
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Full name</label>
+                          <input value={(viewEmp["name"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), name: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                          <input type="email" value={(viewEmp["email"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), email: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                          <input value={(viewEmp["phoneNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), phoneNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Date of Birth</label>
+                          <input type="date" value={(viewEmp["dob"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), dob: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">NID Number</label>
+                          <input value={(viewEmp["nidNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), nidNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Passport Number</label>
+                          <input value={(viewEmp["passportNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), passportNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Present Address</label>
+                          <textarea value={(viewEmp["presentAddress"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), presentAddress: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] min-h-[90px]" />
+                        </div>
+                        {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
+                        <div className="md:col-span-2 flex items-center justify-end gap-2">
+                          <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Full name</label>
+                          <p className="text-[14px] text-[#374151]">{(viewEmp["name"] as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                          <p className="text-[14px] text-[#374151]">{(viewEmp["email"] as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                          <p className="text-[14px] text-[#374151]">{(viewEmp["phoneNumber"] as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Date of Birth</label>
+                          <p className="text-[14px] text-[#374151]">{(viewEmp["dob"] as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">NID Number</label>
+                          <p className="text-[14px] text-[#374151]">{(viewEmp["nidNumber"] as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Passport Number</label>
+                          <p className="text-[14px] text-[#374151]">{(viewEmp["passportNumber"] as string) || "—"}</p>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Present Address</label>
+                          <p className="text-[14px] text-[#374151]">{(viewEmp["presentAddress"] as string) || "—"}</p>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
-                        <input type="email" value={(viewEmp["email"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), email: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
-                        <input value={(viewEmp["phoneNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), phoneNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Date of Birth</label>
-                        <input type="date" value={(viewEmp["dob"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), dob: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">NID Number</label>
-                        <input value={(viewEmp["nidNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), nidNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Passport Number</label>
-                        <input value={(viewEmp["passportNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), passportNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Present Address</label>
-                        <textarea value={(viewEmp["presentAddress"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), presentAddress: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] min-h-[90px]" />
-                      </div>
-                      {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
-                      <div className="md:col-span-2 flex items-center justify-end gap-2">
-                        <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
-                      </div>
-                    </form>
+                    )
                   ) : null}
 
                   {viewTab === "employment" ? (
@@ -850,90 +952,209 @@ export default function EmployeesPage() {
                   ) : null}
 
                   {viewTab === "emergency" ? (
-                    <form
-                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!orgId || !viewEmpId) return;
-                        setViewError("");
-                        setSavingView(true);
-                        try {
-                          const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
-                          await updateDoc(empRef, {
-                            emergencyContactName: (viewEmp["emergencyContactName"] as string) ?? "",
-                            emergencyContactPhone: (viewEmp["emergencyContactPhone"] as string) ?? "",
-                            emergencyContactRelation: (viewEmp["emergencyContactRelation"] as string) ?? "",
-                          });
-                        } catch (err: unknown) {
-                          setViewError(err instanceof Error ? err.message : "Failed to save");
-                        } finally {
-                          setSavingView(false);
-                        }
-                      }}
-                    >
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Name</label>
-                        <input value={(viewEmp["emergencyContactName"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), emergencyContactName: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                    isEditMode ? (
+                      <form
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!orgId || !viewEmpId) return;
+                          setViewError("");
+                          setSavingView(true);
+                          try {
+                            const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
+                            await updateDoc(empRef, {
+                              primaryEmergencyContact: {
+                                name: ((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.name as string) ?? "",
+                                relationship: ((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.relationship as string) ?? "",
+                                phone: ((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.phone as string) ?? "",
+                                email: ((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.email as string) ?? "",
+                              },
+                              secondaryEmergencyContact: {
+                                name: ((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.name as string) ?? "",
+                                relationship: ((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.relationship as string) ?? "",
+                                phone: ((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.phone as string) ?? "",
+                                email: ((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.email as string) ?? "",
+                              },
+                            });
+                          } catch (err: unknown) {
+                            setViewError(err instanceof Error ? err.message : "Failed to save");
+                          } finally {
+                            setSavingView(false);
+                          }
+                        }}
+                      >
+                        <div className="md:col-span-2">
+                          <h3 className="text-[16px] font-medium mb-3">Primary Emergency Contact</h3>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Name</label>
+                          <input value={((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.name as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), primaryEmergencyContact: { ...((viewEmp["primaryEmergencyContact"] as EmergencyContact) || {}), name: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                          <input value={((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.phone as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), primaryEmergencyContact: { ...((viewEmp["primaryEmergencyContact"] as EmergencyContact) || {}), phone: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Relationship</label>
+                          <input value={((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.relationship as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), primaryEmergencyContact: { ...((viewEmp["primaryEmergencyContact"] as EmergencyContact) || {}), relationship: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                          <input value={((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.email as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), primaryEmergencyContact: { ...((viewEmp["primaryEmergencyContact"] as EmergencyContact) || {}), email: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                          <h3 className="text-[16px] font-medium mb-3 mt-6">Secondary Emergency Contact</h3>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Name</label>
+                          <input value={((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.name as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), secondaryEmergencyContact: { ...((viewEmp["secondaryEmergencyContact"] as EmergencyContact) || {}), name: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                          <input value={((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.phone as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), secondaryEmergencyContact: { ...((viewEmp["secondaryEmergencyContact"] as EmergencyContact) || {}), phone: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Relationship</label>
+                          <input value={((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.relationship as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), secondaryEmergencyContact: { ...((viewEmp["secondaryEmergencyContact"] as EmergencyContact) || {}), relationship: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                          <input value={((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.email as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), secondaryEmergencyContact: { ...((viewEmp["secondaryEmergencyContact"] as EmergencyContact) || {}), email: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        
+                        {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
+                        <div className="md:col-span-2 flex items-center justify-end gap-2">
+                          <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-[16px] font-medium mb-3">Primary Emergency Contact</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block mb-1 text-[14px] font-medium text-[#374151]">Name</label>
+                              <p className="text-[14px] text-[#374151]">{((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.name as string) || "—"}</p>
+                            </div>
+                            <div>
+                              <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                              <p className="text-[14px] text-[#374151]">{((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.phone as string) || "—"}</p>
+                            </div>
+                            <div>
+                              <label className="block mb-1 text-[14px] font-medium text-[#374151]">Relationship</label>
+                              <p className="text-[14px] text-[#374151]">{((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.relationship as string) || "—"}</p>
+                            </div>
+                            <div>
+                              <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                              <p className="text-[14px] text-[#374151]">{((viewEmp["primaryEmergencyContact"] as EmergencyContact)?.email as string) || "—"}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.name as string) && (
+                          <div>
+                            <h3 className="text-[16px] font-medium mb-3">Secondary Emergency Contact</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Name</label>
+                                <p className="text-[14px] text-[#374151]">{((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.name as string) || "—"}</p>
+                              </div>
+                              <div>
+                                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
+                                <p className="text-[14px] text-[#374151]">{((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.phone as string) || "—"}</p>
+                              </div>
+                              <div>
+                                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Relationship</label>
+                                <p className="text-[14px] text-[#374151]">{((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.relationship as string) || "—"}</p>
+                              </div>
+                              <div>
+                                <label className="block mb-1 text-[14px] font-medium text-[#374151]">Email</label>
+                                <p className="text-[14px] text-[#374151]">{((viewEmp["secondaryEmergencyContact"] as EmergencyContact)?.email as string) || "—"}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Phone</label>
-                        <input value={(viewEmp["emergencyContactPhone"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), emergencyContactPhone: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Relationship</label>
-                        <input value={(viewEmp["emergencyContactRelation"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), emergencyContactRelation: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
-                      <div className="md:col-span-2 flex items-center justify-end gap-2">
-                        <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
-                      </div>
-                    </form>
+                    )
                   ) : null}
 
                   {viewTab === "bank" ? (
-                    <form
-                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!orgId || !viewEmpId) return;
-                        setViewError("");
-                        setSavingView(true);
-                        try {
-                          const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
-                          await updateDoc(empRef, {
-                            bankName: (viewEmp["bankName"] as string) ?? "",
-                            bankAccountName: (viewEmp["bankAccountName"] as string) ?? "",
-                            bankAccountNumber: (viewEmp["bankAccountNumber"] as string) ?? "",
-                            bankRoutingNumber: (viewEmp["bankRoutingNumber"] as string) ?? "",
-                          });
-                        } catch (err: unknown) {
-                          setViewError(err instanceof Error ? err.message : "Failed to save");
-                        } finally {
-                          setSavingView(false);
-                        }
-                      }}
-                    >
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Bank Name</label>
-                        <input value={(viewEmp["bankName"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankName: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                    isEditMode ? (
+                      <form
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!orgId || !viewEmpId) return;
+                          setViewError("");
+                          setSavingView(true);
+                          try {
+                            const empRef = doc(db, "organizations", orgId, "employees", viewEmpId);
+                            await updateDoc(empRef, {
+                              bankDetails: {
+                                bankName: ((viewEmp["bankDetails"] as BankDetails)?.bankName as string) ?? "",
+                                accountNumber: ((viewEmp["bankDetails"] as BankDetails)?.accountNumber as string) ?? "",
+                                routingNumber: ((viewEmp["bankDetails"] as BankDetails)?.routingNumber as string) ?? "",
+                                accountType: ((viewEmp["bankDetails"] as BankDetails)?.accountType as string) ?? "",
+                              },
+                            });
+                          } catch (err: unknown) {
+                            setViewError(err instanceof Error ? err.message : "Failed to save");
+                          } finally {
+                            setSavingView(false);
+                          }
+                        }}
+                      >
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Bank Name</label>
+                          <input value={((viewEmp["bankDetails"] as BankDetails)?.bankName as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankDetails: { ...((viewEmp["bankDetails"] as BankDetails) || {}), bankName: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Number</label>
+                          <input value={((viewEmp["bankDetails"] as BankDetails)?.accountNumber as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankDetails: { ...((viewEmp["bankDetails"] as BankDetails) || {}), accountNumber: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Type</label>
+                          <select
+                            value={((viewEmp["bankDetails"] as BankDetails)?.accountType as string) || ""}
+                            onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankDetails: { ...((viewEmp["bankDetails"] as BankDetails) || {}), accountType: e.target.value } })}
+                            className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]"
+                          >
+                            <option value="">Select Account Type</option>
+                            <option value="Checking">Checking</option>
+                            <option value="Savings">Savings</option>
+                            <option value="Business">Business</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Routing Number</label>
+                          <input value={((viewEmp["bankDetails"] as BankDetails)?.routingNumber as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankDetails: { ...((viewEmp["bankDetails"] as BankDetails) || {}), routingNumber: e.target.value } })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
+                        </div>
+                        {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
+                        <div className="md:col-span-2 flex items-center justify-end gap-2">
+                          <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Bank Name</label>
+                          <p className="text-[14px] text-[#374151]">{((viewEmp["bankDetails"] as BankDetails)?.bankName as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Number</label>
+                          <p className="text-[14px] text-[#374151]">{((viewEmp["bankDetails"] as BankDetails)?.accountNumber as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Type</label>
+                          <p className="text-[14px] text-[#374151]">{((viewEmp["bankDetails"] as BankDetails)?.accountType as string) || "—"}</p>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-[14px] font-medium text-[#374151]">Routing Number</label>
+                          <p className="text-[14px] text-[#374151]">{((viewEmp["bankDetails"] as BankDetails)?.routingNumber as string) || "—"}</p>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Name</label>
-                        <input value={(viewEmp["bankAccountName"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankAccountName: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Account Number</label>
-                        <input value={(viewEmp["bankAccountNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankAccountNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-[14px] font-medium text-[#374151]">Routing Number</label>
-                        <input value={(viewEmp["bankRoutingNumber"] as string) || ""} onChange={(e) => setViewEmp({ ...(viewEmp || {}), bankRoutingNumber: e.target.value })} className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px]" />
-                      </div>
-                      {viewError ? <p className="md:col-span-2 text-[13px] text-[#b91c1c]">{viewError}</p> : null}
-                      <div className="md:col-span-2 flex items-center justify-end gap-2">
-                        <button type="submit" className="rounded-md bg-[#1f2937] text-white px-4 py-2 text-[14px] hover:bg-[#111827] disabled:opacity-60" disabled={savingView}>{savingView ? "Saving…" : "Save"}</button>
-                      </div>
-                    </form>
+                    )
                   ) : null}
 
                   {viewTab === "history" ? (
