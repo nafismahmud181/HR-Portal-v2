@@ -7,6 +7,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { collectionGroup, getDocs, query, where } from "firebase/firestore";
 import { checkSetupStatus } from "@/lib/setup-guard";
+import { useStableAuth } from "@/lib/auth-guard";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -64,7 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
+    const cleanup = useStableAuth(async (user) => {
       if (!user) {
         router.replace("/login");
         return;
@@ -98,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
       setCheckingAuth(false);
     });
-    return () => unsub();
+    return cleanup;
   }, [router]);
 
   async function handleLogout() {

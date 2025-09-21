@@ -1,6 +1,6 @@
 import { getApps, getApp, initializeApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
-import { getAuth, browserLocalPersistence, setPersistence, type Auth } from "firebase/auth";
+import { getAuth, browserLocalPersistence, setPersistence, onAuthStateChanged, type Auth, type User } from "firebase/auth";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 let firebaseApp: FirebaseApp;
@@ -24,6 +24,29 @@ const auth: Auth = getAuth(firebaseApp);
 setPersistence(auth, browserLocalPersistence).catch(() => {
   // Non-fatal; persistence might not be available in some environments
 });
+
+// Auth state stabilization helper
+let authStateStabilized = false;
+let authStatePromise: Promise<User | null> | null = null;
+
+export const getStabilizedAuthState = (): Promise<User | null> => {
+  if (authStatePromise) {
+    return authStatePromise;
+  }
+  
+  authStatePromise = new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // Wait for auth state to stabilize (no null user after 100ms)
+      setTimeout(() => {
+        unsubscribe();
+        authStateStabilized = true;
+        resolve(user);
+      }, 100);
+    });
+  });
+  
+  return authStatePromise;
+};
 
 const db: Firestore = getFirestore(firebaseApp);
 const storage: FirebaseStorage = getStorage(firebaseApp);
