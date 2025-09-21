@@ -166,6 +166,16 @@ service cloud.firestore {
       );
     }
 
+    // Allow authenticated users to read employees from any organization they have access to
+    // This is for template generation and other admin functions
+    match /organizations/{orgId}/employees/{employeeId} {
+      allow read: if isSignedIn() && (
+        isOrgMember(orgId) || 
+        isOrgCreator(orgId) || 
+        request.auth.uid == orgId
+      );
+    }
+
     // Default deny for everything else
     match /{document=**} {
       allow read, write: if false;

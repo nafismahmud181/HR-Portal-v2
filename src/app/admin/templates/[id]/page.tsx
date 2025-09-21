@@ -3,16 +3,32 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import RichTextEditor from "@/components/RichTextEditor";
+import { 
+  AVAILABLE_FIELDS, 
+  DEFAULT_LETTER_TEMPLATE, 
+  processTemplateToHtml, 
+  formatLongDate,
+  type EmployeeData 
+} from "@/lib/template-utils";
 
-function formatLongDate(input: string) {
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+// Employee interface for dropdown
+interface Employee {
+  id: string;
+  name: string;
+  employeeId: string;
+  email: string;
+  department: string;
+  jobTitle: string;
+  hireDate: string;
+  employeeType: string;
+  status: string;
+  location?: string;
+  compensation?: string;
 }
 
 export default function TemplateEditorPage() {
@@ -91,6 +107,16 @@ function LoeEditor() {
   const [hrEmail, setHrEmail] = useState("");
   const [hrPhone, setHrPhone] = useState("");
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [letterContent, setLetterContent] = useState(DEFAULT_LETTER_TEMPLATE);
+  const [useRichEditor, setUseRichEditor] = useState(true);
+  const [templateName, setTemplateName] = useState("");
+  const [savedTemplates, setSavedTemplates] = useState<Array<{ name: string; content: string; id: string }>>([]);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  
+  // Employee dropdown state
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [bulkItems, setBulkItems] = useState<
     Array<{
       employeeName: string;
@@ -128,6 +154,28 @@ function LoeEditor() {
   const companyCityLine =
     `${companyCity}, ${companyState}, ${companyZip}`.trim();
 
+  // Get current employee data for template processing
+  const getCurrentEmployeeData = (): EmployeeData => ({
+    employeeName,
+    designation,
+    department,
+    employmentType,
+    employeeId,
+    dateOfJoining,
+    currentSalary,
+    companyName,
+    companyStreet,
+    companyCity,
+    companyState,
+    companyZip,
+    companyCountry,
+    issueDate,
+    hrName,
+    hrTitle,
+    hrEmail,
+    hrPhone,
+  });
+
   function handleExport() {
     const formattedJoin = formatLongDate(dateOfJoining) || '[Date of Joining]';
     const formattedIssue = formatLongDate(issueDate);
@@ -135,6 +183,9 @@ function LoeEditor() {
     const signatureImgHTML = signatureDataUrl
       ? `<img src="${signatureDataUrl}" style="height:64px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
       : "";
+
+    // Process the rich text content with placeholders and convert to HTML
+    const processedContent = processTemplateToHtml(letterContent, getCurrentEmployeeData());
 
     const html = `<!doctype html>
 <html>
@@ -178,11 +229,7 @@ function LoeEditor() {
 
           <div class="rule"></div>
 
-          <p class="para">This letter is to confirm that <strong>${employeeName || '[Name]'}</strong> is employed with <strong>${companyName || '[Company Name]'}</strong> as a <strong>${designation || '[Designation]'}</strong>${
-      department ? ` in the <strong>${department}</strong> department` : ` in the <strong>[Department]</strong> department`
-    } since ${formattedJoin}. The nature of employment is ${employmentType.toLowerCase()} and the current compensation is ${currentSalary || '[Current Salary]'}.</p>
-
-          <p class="para">This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact ${hrName || '[HR Name]'} (${hrTitle || '[HR Title]'}) at ${hrEmail || '[HR Email]'} or ${hrPhone || '[HR Phone]'}.</p>
+          <div class="para">${processedContent}</div>
 
           <div class="rule"></div>
 
@@ -346,7 +393,31 @@ function LoeEditor() {
 
     const docs = bulkItems
       .map((it) => {
-        const formattedJoin = formatLongDate(it.dateOfJoining) || '[Date of Joining]';
+        // Create employee data for this bulk item
+        const employeeData: EmployeeData = {
+          employeeName: it.employeeName,
+          designation: it.designation,
+          department: it.department,
+          employmentType: it.employmentType,
+          employeeId: it.employeeId,
+          dateOfJoining: it.dateOfJoining,
+          currentSalary: it.currentSalary,
+          companyName,
+          companyStreet,
+          companyCity,
+          companyState,
+          companyZip,
+          companyCountry,
+          issueDate,
+          hrName,
+          hrTitle,
+          hrEmail,
+          hrPhone,
+        };
+        
+        // Process the rich text content with placeholders for this employee and convert to HTML
+        const processedContent = processTemplateToHtml(letterContent, employeeData);
+        
         return `
         <div class="doc">
           <div class="card">
@@ -367,7 +438,7 @@ function LoeEditor() {
               <div class="row"><div class="label">Employment</div><div class="value">${
                 it.employmentType
               }</div></div>
-              <div class="row"><div class="label">Joined</div><div class="value">${formattedJoin}</div></div>
+              <div class="row"><div class="label">Joined</div><div class="value">${formatLongDate(it.dateOfJoining) || '[Date of Joining]'}</div></div>
               <div class="row"><div class="label">Salary</div><div class="value">${
                 it.currentSalary || '[Current Salary]'
               }</div></div>
@@ -375,19 +446,7 @@ function LoeEditor() {
 
               <div class="rule"></div>
 
-              <p class="para">This letter is to confirm that <strong>${
-                it.employeeName || '[Name]'
-              }</strong> is employed with <strong>${companyName || '[Company Name]'}</strong> as a <strong>${
-          it.designation || '[Designation]'
-        }</strong>${
-          it.department
-            ? ` in the <strong>${it.department}</strong> department`
-            : ` in the <strong>[Department]</strong> department`
-        } since ${formattedJoin}. The nature of employment is ${it.employmentType.toLowerCase()} and the current compensation is ${
-          it.currentSalary || '[Current Salary]'
-        }.</p>
-
-              <p class="para">This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact ${hrName || '[HR Name]'} (${hrTitle || '[HR Title]'}) at ${hrEmail || '[HR Email]'} or ${hrPhone || '[HR Phone]'}.</p>
+              <div class="para">${processedContent}</div>
 
               <div class="rule"></div>
 
@@ -464,9 +523,236 @@ function LoeEditor() {
     reader.readAsDataURL(file);
   }
 
+  // Template management functions
+  function saveTemplate() {
+    if (!templateName.trim()) return;
+    const newTemplate = {
+      id: Date.now().toString(),
+      name: templateName.trim(),
+      content: letterContent,
+    };
+    setSavedTemplates(prev => [...prev, newTemplate]);
+    setTemplateName("");
+    setShowSaveDialog(false);
+    // Save to localStorage
+    localStorage.setItem('loe_templates', JSON.stringify([...savedTemplates, newTemplate]));
+  }
+
+  function loadTemplate(template: { name: string; content: string; id: string }) {
+    setLetterContent(template.content);
+    setShowSaveDialog(false);
+  }
+
+  function deleteTemplate(templateId: string) {
+    const updatedTemplates = savedTemplates.filter(t => t.id !== templateId);
+    setSavedTemplates(updatedTemplates);
+    localStorage.setItem('loe_templates', JSON.stringify(updatedTemplates));
+  }
+
+  // Load templates from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('loe_templates');
+    if (stored) {
+      try {
+        setSavedTemplates(JSON.parse(stored));
+      } catch (e) {
+        console.error('Failed to load saved templates:', e);
+      }
+    }
+  }, []);
+
+  // Fetch employees from Firebase
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      setLoadingEmployees(true);
+      try {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            try {
+              // Try to find the user's organization
+              let orgId = user.uid; // Default to user.uid as orgId
+              
+              // First, try to find organization where user is the creator
+              const orgRef = collection(db, 'organizations');
+              const orgQuery = query(orgRef, where('createdBy', '==', user.uid));
+              const orgSnapshot = await getDocs(orgQuery);
+              
+              if (!orgSnapshot.empty) {
+                const orgDoc = orgSnapshot.docs[0];
+                orgId = orgDoc.id;
+              } else {
+                // If not found as creator, try to find organization where user is a member
+                const userOrgsQuery = query(orgRef, where('users', '==', user.uid));
+                const userOrgsSnapshot = await getDocs(userOrgsQuery);
+                
+                if (!userOrgsSnapshot.empty) {
+                  const userOrgDoc = userOrgsSnapshot.docs[0];
+                  orgId = userOrgDoc.id;
+                }
+              }
+              
+              // Fetch employees from the organization's employees subcollection
+              const employeesRef = collection(db, 'organizations', orgId, 'employees');
+              const employeesQuery = query(employeesRef, where('status', '==', 'Active'));
+              const snapshot = await getDocs(employeesQuery);
+              
+              const employeesList: Employee[] = [];
+              snapshot.forEach((doc) => {
+                const data = doc.data();
+                employeesList.push({
+                  id: doc.id,
+                  name: data.name || '',
+                  employeeId: data.employeeId || doc.id,
+                  email: data.email || '',
+                  department: data.department || '',
+                  jobTitle: data.jobTitle || '',
+                  hireDate: data.hireDate || '',
+                  employeeType: data.employeeType || 'Full-time',
+                  status: data.status || 'Active',
+                  location: data.location || '',
+                  compensation: data.compensation || data.salary || '',
+                });
+              });
+              
+              setEmployees(employeesList);
+            } catch (orgError) {
+              console.error('Error accessing organization:', orgError);
+              // If organization access fails, try direct employees collection as fallback
+              try {
+                const employeesRef = collection(db, 'employees');
+                const employeesQuery = query(employeesRef, where('status', '==', 'Active'));
+                const snapshot = await getDocs(employeesQuery);
+                
+                const employeesList: Employee[] = [];
+                snapshot.forEach((doc) => {
+                  const data = doc.data();
+                  employeesList.push({
+                    id: doc.id,
+                    name: data.name || '',
+                    employeeId: data.employeeId || doc.id,
+                    email: data.email || '',
+                    department: data.department || '',
+                    jobTitle: data.jobTitle || '',
+                    hireDate: data.hireDate || '',
+                    employeeType: data.employeeType || 'Full-time',
+                    status: data.status || 'Active',
+                    location: data.location || '',
+                    compensation: data.compensation || data.salary || '',
+                  });
+                });
+                
+                setEmployees(employeesList);
+              } catch (fallbackError) {
+                console.error('Fallback employee fetch failed:', fallbackError);
+                setEmployees([]);
+              }
+            }
+          }
+        });
+        
+        return () => unsubscribe();
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
+  // Auto-populate form fields when employee is selected
+  const handleEmployeeSelect = (employeeId: string) => {
+    setSelectedEmployeeId(employeeId);
+    
+    if (employeeId === "") {
+      // Clear form if no employee selected
+      setEmployeeName("");
+      setDesignation("");
+      setDepartment("");
+      setEmployeeId("");
+      setDateOfJoining("");
+      setCurrentSalary("");
+      setEmploymentType("Full-time");
+      return;
+    }
+    
+    const selectedEmployee = employees.find(emp => emp.id === employeeId);
+    if (selectedEmployee) {
+      setEmployeeName(selectedEmployee.name);
+      setDesignation(selectedEmployee.jobTitle);
+      setDepartment(selectedEmployee.department);
+      setEmployeeId(selectedEmployee.employeeId);
+      setDateOfJoining(selectedEmployee.hireDate);
+      setCurrentSalary(selectedEmployee.compensation || "");
+      setEmploymentType(selectedEmployee.employeeType);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#ffffff] text-[#1a1a1a]">
-      <style>{`@media print { .no-print { display: none !important; } .print-area { box-shadow: none !important; } .print-letter-card { border: 0 !important; } .print-letter-header { border: 0 !important; } .print-letter-container { max-width: 700px !important; width: 100% !important; margin: 0 auto !important; } .print-layout { border: 0 !important; padding: 0 !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { margin: 20mm; } }`}</style>
+      <style>{`
+        @media print { 
+          .no-print { display: none !important; } 
+          .print-area { box-shadow: none !important; } 
+          .print-letter-card { border: 0 !important; } 
+          .print-letter-header { border: 0 !important; } 
+          .print-letter-container { max-width: 700px !important; width: 100% !important; margin: 0 auto !important; } 
+          .print-layout { border: 0 !important; padding: 0 !important; } 
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+          @page { margin: 20mm; } 
+        }
+        
+        /* Custom MDEditor Styles */
+        .w-md-editor {
+          border: 1px solid #d1d5db !important;
+          border-radius: 6px !important;
+        }
+        
+        .w-md-editor-toolbar {
+          background-color: #f9fafb !important;
+          border-bottom: 1px solid #e5e7eb !important;
+          height: 40px !important;
+        }
+        
+        .w-md-editor-toolbar button {
+          color: #6b7280 !important;
+        }
+        
+        .w-md-editor-toolbar button:hover {
+          background-color: #f3f4f6 !important;
+          color: #374151 !important;
+        }
+        
+        .w-md-editor-toolbar button.active {
+          background-color: #fef7ed !important;
+          color: #f97316 !important;
+        }
+        
+        .w-md-editor-text-container {
+          background-color: white !important;
+        }
+        
+        .w-md-editor-text {
+          font-size: 14px !important;
+          line-height: 1.5 !important;
+          color: #111827 !important;
+        }
+        
+        /* Employee dropdown styling */
+        select option {
+          padding: 8px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        
+        select {
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      `}</style>
       <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb] no-print">
         <div className="max-w-[1200px] mx-auto h-[60px] flex items-center justify-between px-6">
           <div className="flex items-center gap-2">
@@ -526,11 +812,49 @@ function LoeEditor() {
 
               <h2 className="text-[16px] font-semibold">Employment Details</h2>
 
+              <div className="mb-4">
+                <label className="block mb-1 text-[12px] text-[#6b7280]">Select Employee</label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => handleEmployeeSelect(e.target.value)}
+                    className="w-full sm:flex-1 rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] bg-white"
+                    disabled={loadingEmployees}
+                  >
+                    <option value="">
+                      {loadingEmployees ? "Loading employees..." : "Select an employee to auto-fill"}
+                    </option>
+                    {employees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name} - {employee.jobTitle}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedEmployeeId && (
+                    <button
+                      type="button"
+                      onClick={() => handleEmployeeSelect("")}
+                      className="w-full sm:w-auto px-3 py-2 text-[12px] border border-[#d1d5db] rounded-md hover:bg-[#f9fafb] bg-white whitespace-nowrap sm:flex-shrink-0"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {employees.length === 0 && !loadingEmployees && (
+                  <p className="mt-1 text-[12px] text-[#6b7280]">
+                    No active employees found. Please ensure you have proper permissions to access employee data.
+                  </p>
+                )}
+              </div>
+
               <Field label="Full name">
                 <input
                   value={employeeName}
                   onChange={(e) => setEmployeeName(e.target.value)}
-                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                  className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
+                    selectedEmployeeId && employeeName ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                  }`}
+                  placeholder={selectedEmployeeId ? "Auto-filled from employee data" : ""}
                 />
               </Field>
 
@@ -539,7 +863,9 @@ function LoeEditor() {
                   <input
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                    className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
+                      selectedEmployeeId && employeeId ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                    }`}
                   />
                 </Field>
                 <Field label="Employment type">
@@ -561,14 +887,18 @@ function LoeEditor() {
                   <input
                     value={designation}
                     onChange={(e) => setDesignation(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                    className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
+                      selectedEmployeeId && designation ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                    }`}
                   />
                 </Field>
                 <Field label="Department">
                   <input
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                    className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
+                      selectedEmployeeId && department ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                    }`}
                   />
                 </Field>
               </div>
@@ -579,14 +909,18 @@ function LoeEditor() {
                     type="date"
                     value={dateOfJoining}
                     onChange={(e) => setDateOfJoining(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                    className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
+                      selectedEmployeeId && dateOfJoining ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                    }`}
                   />
                 </Field>
                 <Field label="Current salary">
                   <input
                     value={currentSalary}
                     onChange={(e) => setCurrentSalary(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                    className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
+                      selectedEmployeeId && currentSalary ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                    }`}
                   />
                 </Field>
               </div>
@@ -655,6 +989,81 @@ function LoeEditor() {
                     className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
                   />
                 </Field>
+              </div>
+
+              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
+                Letter Content
+              </h3>
+              
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-[14px]">
+                      <input
+                        type="radio"
+                        name="editorMode"
+                        checked={useRichEditor}
+                        onChange={() => setUseRichEditor(true)}
+                        className="text-[#f97316] focus:ring-[#f97316]"
+                      />
+                      Rich Text Editor
+                    </label>
+                    <label className="flex items-center gap-2 text-[14px]">
+                      <input
+                        type="radio"
+                        name="editorMode"
+                        checked={!useRichEditor}
+                        onChange={() => setUseRichEditor(false)}
+                        className="text-[#f97316] focus:ring-[#f97316]"
+                      />
+                      Simple Text
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowSaveDialog(true)}
+                      className="px-3 py-1 text-[12px] border border-[#d1d5db] rounded-md hover:bg-[#f9fafb] bg-white"
+                    >
+                      Save Template
+                    </button>
+                    {savedTemplates.length > 0 && (
+                      <select
+                        onChange={(e) => {
+                          const template = savedTemplates.find(t => t.id === e.target.value);
+                          if (template) loadTemplate(template);
+                        }}
+                        className="px-2 py-1 text-[12px] border border-[#d1d5db] rounded-md bg-white"
+                        defaultValue=""
+                      >
+                        <option value="">Load Template</option>
+                        {savedTemplates.map(template => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+                
+                {useRichEditor ? (
+                  <RichTextEditor
+                    value={letterContent}
+                    onChange={setLetterContent}
+                    availableFields={AVAILABLE_FIELDS}
+                  />
+                ) : (
+                  <Field label="Letter Content">
+                    <textarea
+                      value={letterContent}
+                      onChange={(e) => setLetterContent(e.target.value)}
+                      rows={8}
+                      className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                      placeholder="Enter your letter content. Use {{fieldName}} for placeholders."
+                    />
+                  </Field>
+                )}
               </div>
 
               <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
@@ -881,34 +1290,12 @@ function LoeEditor() {
 
                   <div className="my-6 h-px bg-[#e5e7eb]" />
 
-                  <div className="space-y-4 leading-relaxed text-[#111827]">
-                    <p>
-                      This letter is to confirm that{" "}
-                      <span className="font-medium">{employeeName || '[Name]'}</span> is
-                      employed with
-                      <span className="font-medium"> {companyName || '[Company Name]'}</span> as a{" "}
-                      <span className="font-medium">{designation || '[Designation]'}</span>
-                      {department ? (
-                        <>
-                          {" "}
-                          in the{" "}
-                          <span className="font-medium">{department}</span>{" "}
-                          department
-                        </>
-                      ) : (
-                        <span> in the <span className="font-medium">[Department]</span> department</span>
-                      )}{" "}
-                      since {formatLongDate(dateOfJoining) || '[Date of Joining]'}. The nature of
-                      employment is {employmentType.toLowerCase()} and the
-                      current compensation is {currentSalary || '[Current Salary]'}.
-                    </p>
-                    <p>
-                      This letter is issued upon request of the employee for
-                      whatever purpose it may serve. For additional
-                      verification, please contact {hrName || '[HR Name]'} ({hrTitle || '[HR Title]'}) at{" "}
-                      {hrEmail || '[HR Email]'} or {hrPhone || '[HR Phone]'}.
-                    </p>
-                  </div>
+                  <div 
+                    className="space-y-4 leading-relaxed text-[#111827] prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ 
+                      __html: processTemplateToHtml(letterContent, getCurrentEmployeeData()) 
+                    }}
+                  />
 
                   <div className="my-6 h-px bg-[#e5e7eb]" />
 
@@ -942,6 +1329,72 @@ function LoeEditor() {
           </div>
         </div>
       </div>
+
+      {/* Save Template Dialog */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw]">
+            <h3 className="text-[16px] font-semibold mb-4">Save Template</h3>
+            <div className="mb-4">
+              <label className="block text-[14px] font-medium text-[#374151] mb-2">
+                Template Name
+              </label>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                placeholder="Enter template name..."
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveTemplate();
+                  if (e.key === 'Escape') setShowSaveDialog(false);
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                onClick={() => setShowSaveDialog(false)}
+                className="px-3 py-2 text-[14px] border border-[#d1d5db] rounded-md hover:bg-[#f9fafb]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveTemplate}
+                disabled={!templateName.trim()}
+                className="px-3 py-2 text-[14px] bg-[#f97316] text-white rounded-md hover:bg-[#ea580c] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Saved Templates List */}
+      {savedTemplates.length > 0 && (
+        <div className="fixed bottom-4 right-4 bg-white border border-[#e5e7eb] rounded-lg shadow-lg p-4 max-w-sm z-40">
+          <h4 className="text-[14px] font-medium mb-2">Saved Templates</h4>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {savedTemplates.map(template => (
+              <div key={template.id} className="flex items-center justify-between text-[12px]">
+                <button
+                  onClick={() => loadTemplate(template)}
+                  className="text-left hover:text-[#f97316] flex-1 truncate"
+                >
+                  {template.name}
+                </button>
+                <button
+                  onClick={() => deleteTemplate(template.id)}
+                  className="text-[#ef4444] hover:text-[#dc2626] ml-2"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
