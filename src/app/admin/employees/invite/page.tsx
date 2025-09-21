@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, collectionGroup, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { generateEmployeeId, getNextSequenceNumber, EmployeeIdContext } from "@/lib/employee-id-generator";
 
 type UserType = "employee" | "manager" | "admin";
 
@@ -86,6 +87,10 @@ export default function InviteEmployeePage() {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [employeeIdFormat, setEmployeeIdFormat] = useState<string>("EMP{YYYY}-{###}");
+  const [existingEmployeeIds, setExistingEmployeeIds] = useState<string[]>([]);
+  const [employeeIdConflict, setEmployeeIdConflict] = useState<{ hasConflict: boolean; originalId: string; resolvedId: string } | null>(null);
+  const [isGeneratingId, setIsGeneratingId] = useState(false);
   const [emailSendStatus, setEmailSendStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [emailSendMessage, setEmailSendMessage] = useState("");
   const [currentStep, setCurrentStep] = useState<"invite" | "email" | "link">("invite");
@@ -101,14 +106,20 @@ export default function InviteEmployeePage() {
         if (!snap.empty) {
           const ref = snap.docs[0].ref;
           const parentOrg = ref.parent.parent;
-          setOrgId(parentOrg ? parentOrg.id : null);
+          const foundOrgId = parentOrg ? parentOrg.id : null;
+          setOrgId(foundOrgId);
+          if (foundOrgId) {
+            await loadCompanySettingsAndEmployeeIds(foundOrgId);
+          }
         } else {
           // Fallback: find org where current user is the creator
           const orgsCol = collection(db, "organizations");
           const orgsQ = query(orgsCol, where("createdBy", "==", user.uid));
           const orgsSnap = await getDocs(orgsQ);
           if (!orgsSnap.empty) {
-            setOrgId(orgsSnap.docs[0].id);
+            const foundOrgId = orgsSnap.docs[0].id;
+            setOrgId(foundOrgId);
+            await loadCompanySettingsAndEmployeeIds(foundOrgId);
           } else {
             setOrgId(null);
           }
@@ -121,6 +132,139 @@ export default function InviteEmployeePage() {
     });
     return () => unsub();
   }, []);
+  
+  // Smart employee ID generation with conflict detection and auto-increment
+  const generateSmartEmployeeId = useCallback(async (name: string, context: Partial<EmployeeIdContext> = {}) => {
+    setIsGeneratingId(true);
+    setEmployeeIdConflict(null);
+    
+    try {
+      const formatToUse = employeeIdFormat || "EMP{YYYY}-{###}";
+      
+      // Get the next sequence number based on existing IDs
+      const nextSequence = getNextSequenceNumber(formatToUse, existingEmployeeIds);
+      
+      // Create full context for employee ID generation
+      const fullContext: EmployeeIdContext = {
+        sequence: nextSequence,
+        department: formData.departmentId ? departments.find(d => d.id === formData.departmentId)?.name : undefined,
+        employeeType: formData.employeeType,
+        location: formData.workLocation,
+        ...context
+      };
+      
+      // Generate the initial employee ID
+      const initialId = generateEmployeeId(formatToUse, fullContext);
+      console.log("Generated initial employee ID:", initialId);
+      
+      // Check if this ID already exists
+      if (existingEmployeeIds.includes(initialId)) {
+        console.log("Employee ID conflict detected:", initialId);
+        
+        // Find the next available ID by incrementing sequence
+        let resolvedId = initialId;
+        let currentSequence = nextSequence;
+        let attempts = 0;
+        const maxAttempts = 100; // Prevent infinite loop
+        
+        while (existingEmployeeIds.includes(resolvedId) && attempts < maxAttempts) {
+          currentSequence++;
+          const newContext = { ...fullContext, sequence: currentSequence };
+          resolvedId = generateEmployeeId(formatToUse, newContext);
+          attempts++;
+        }
+        
+        if (attempts >= maxAttempts) {
+          throw new Error("Unable to generate unique employee ID after 100 attempts");
+        }
+        
+        console.log("Resolved conflict with ID:", resolvedId);
+        
+        // Set conflict information for UI feedback
+        setEmployeeIdConflict({
+          hasConflict: true,
+          originalId: initialId,
+          resolvedId: resolvedId
+        });
+        
+        return resolvedId;
+      } else {
+        console.log("No conflict detected, using initial ID:", initialId);
+        return initialId;
+      }
+    } catch (error) {
+      console.error("Error in smart employee ID generation:", error);
+      // Fallback to simple generation
+      const nameParts = name.trim().split(" ");
+      if (nameParts.length >= 2) {
+        const firstName = nameParts[0].toUpperCase();
+        const lastName = nameParts[nameParts.length - 1].toUpperCase();
+        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+        return `${firstName}${lastName}${randomNum}`;
+      }
+      return `EMP${Date.now().toString().slice(-6)}`; // Fallback with timestamp
+    } finally {
+      setIsGeneratingId(false);
+    }
+  }, [employeeIdFormat, existingEmployeeIds, formData.departmentId, formData.employeeType, formData.workLocation, departments]);
+
+  // Refresh existing employee IDs (useful after creating new employees)
+  const refreshExistingEmployeeIds = async () => {
+    if (!orgId) return;
+    
+    try {
+      const employeesRef = collection(db, "organizations", orgId, "employees");
+      const employeesSnapshot = await getDocs(employeesRef);
+      const employeeIds = employeesSnapshot.docs
+        .map(doc => doc.data().employeeId || doc.id)
+        .filter(id => id);
+      setExistingEmployeeIds(employeeIds);
+      console.log("Refreshed existing employee IDs:", employeeIds.length);
+    } catch (error) {
+      console.error("Error refreshing existing employee IDs:", error);
+    }
+  };
+
+  const loadCompanySettingsAndEmployeeIds = async (organizationId: string) => {
+    try {
+      // Load company settings to get employee ID format
+      try {
+        const orgDoc = doc(db, "organizations", organizationId);
+        const orgSnapshot = await getDoc(orgDoc);
+        if (orgSnapshot.exists()) {
+          const orgData = orgSnapshot.data();
+          const format = orgData?.documentConfig?.employeeIdFormat || "EMP{YYYY}-{###}";
+          setEmployeeIdFormat(format);
+          console.log("Loaded employee ID format:", format);
+        } else {
+          console.log("Organization document not found, using default format");
+          setEmployeeIdFormat("EMP{YYYY}-{###}");
+        }
+      } catch (orgError) {
+        console.warn("Could not load organization settings, using default format:", orgError);
+        setEmployeeIdFormat("EMP{YYYY}-{###}");
+      }
+      
+      // Load existing employee IDs
+      try {
+        const employeesRef = collection(db, "organizations", organizationId, "employees");
+        const employeesSnapshot = await getDocs(employeesRef);
+        const employeeIds = employeesSnapshot.docs
+          .map(doc => doc.data().employeeId || doc.id)
+          .filter(id => id); // Filter out empty/undefined IDs
+        setExistingEmployeeIds(employeeIds);
+        console.log("Loaded existing employee IDs:", employeeIds.length);
+      } catch (employeeError) {
+        console.warn("Could not load existing employee IDs:", employeeError);
+        setExistingEmployeeIds([]);
+      }
+    } catch (error) {
+      console.error("Error loading company settings:", error);
+      // Set defaults on error
+      setEmployeeIdFormat("EMP{YYYY}-{###}");
+      setExistingEmployeeIds([]);
+    }
+  };
 
   // Load departments for the organization
   useEffect(() => {
@@ -174,17 +318,14 @@ export default function InviteEmployeePage() {
 
   // Generate employee ID when full name changes
   useEffect(() => {
-    if (formData.fullName && activeTab === "employee") {
-      const nameParts = formData.fullName.trim().split(" ");
-      if (nameParts.length >= 2) {
-        const firstName = nameParts[0].toUpperCase();
-        const lastName = nameParts[nameParts.length - 1].toUpperCase();
-        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
-        const generatedId = `${firstName}${lastName}${randomNum}`;
+    if (formData.fullName && activeTab === "employee" && orgId && !isGeneratingId) {
+      generateSmartEmployeeId(formData.fullName).then(generatedId => {
         setFormData(prev => ({ ...prev, employeeId: generatedId }));
-      }
+      }).catch(error => {
+        console.error("Error generating smart employee ID:", error);
+      });
     }
-  }, [formData.fullName, activeTab]);
+  }, [formData.fullName, activeTab, orgId, generateSmartEmployeeId, isGeneratingId]);
 
   // Load roles when department changes
   useEffect(() => {
@@ -371,6 +512,9 @@ export default function InviteEmployeePage() {
       setStatus("sent");
       setMessage("Invite created successfully! Copy the link below and share it.");
       
+      // Refresh existing employee IDs after successful creation
+      await refreshExistingEmployeeIds();
+      
       // Reset form for next invite after a short delay
       setTimeout(() => {
         setFormData({
@@ -514,9 +658,28 @@ export default function InviteEmployeePage() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700 mb-1">
-                    Employee ID *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
+                      Employee ID *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (formData.fullName && !isGeneratingId) {
+                          generateSmartEmployeeId(formData.fullName).then(generatedId => {
+                            setFormData(prev => ({ ...prev, employeeId: generatedId }));
+                            console.log("Regenerated employee ID:", generatedId);
+                          }).catch(error => {
+                            console.error("Error regenerating employee ID:", error);
+                          });
+                        }
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
+                      disabled={!formData.fullName || isGeneratingId}
+                    >
+                      {isGeneratingId ? "Generating..." : "Regenerate"}
+                    </button>
+                  </div>
                   <input
                     id="employeeId"
                     type="text"
@@ -526,7 +689,47 @@ export default function InviteEmployeePage() {
                     value={formData.employeeId}
                     onChange={(e) => updateFormData("employeeId", e.target.value)}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Auto-generated based on name, but can be edited</p>
+                  <div className="mt-1 space-y-1">
+                    <p className="text-xs text-gray-500">
+                      Auto-generated using format: <code className="bg-gray-100 px-1 rounded">{employeeIdFormat}</code>
+                    </p>
+                    
+                    {/* Conflict Resolution Feedback */}
+                    {employeeIdConflict && employeeIdConflict.hasConflict && (
+                      <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <div className="text-yellow-600 text-xs">⚠️</div>
+                          <div className="text-xs">
+                            <p className="text-yellow-800 font-medium">ID Conflict Resolved</p>
+                            <p className="text-yellow-700">
+                              Original: <code className="bg-yellow-100 px-1 rounded">{employeeIdConflict.originalId}</code> (already exists)
+                            </p>
+                            <p className="text-yellow-700">
+                              Auto-assigned: <code className="bg-yellow-100 px-1 rounded">{employeeIdConflict.resolvedId}</code>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Generated ID Display */}
+                    {formData.employeeId && (
+                      <div className={`text-xs ${employeeIdConflict ? 'text-green-600' : 'text-blue-600'}`}>
+                        {employeeIdConflict ? 'Resolved ID:' : 'Generated ID:'} 
+                        <code className={`px-1 rounded ${employeeIdConflict ? 'bg-green-100' : 'bg-blue-100'}`}>
+                          {formData.employeeId}
+                        </code>
+                      </div>
+                    )}
+                    
+                    {/* Loading State */}
+                    {isGeneratingId && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400"></div>
+                        Checking for conflicts and generating unique ID...
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

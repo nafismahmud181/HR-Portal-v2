@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { 
+  validateEmployeeIdFormat, 
+  previewEmployeeIdFormat, 
+  generateEmployeeIdPreview,
+  getFormatVariablesHelp 
+} from "@/lib/employee-id-generator";
 
 interface CompanySettings {
   documentConfig: {
@@ -90,6 +96,27 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
     title: "",
     signatureTemplate: ""
   });
+  
+  // Employee ID format preview and validation
+  const [employeeIdPreview, setEmployeeIdPreview] = useState<string>("");
+  const [employeeIdValidation, setEmployeeIdValidation] = useState<{ valid: boolean; errors: string[] }>({ valid: true, errors: [] });
+  const [showEmployeeIdPreview, setShowEmployeeIdPreview] = useState(false);
+
+  // Update preview and validation when format changes
+  useEffect(() => {
+    const format = formData.documentConfig.employeeIdFormat;
+    if (format) {
+      const validation = validateEmployeeIdFormat(format);
+      setEmployeeIdValidation(validation);
+      
+      if (validation.valid) {
+        const preview = previewEmployeeIdFormat(format);
+        setEmployeeIdPreview(preview);
+      } else {
+        setEmployeeIdPreview("Invalid format");
+      }
+    }
+  }, [formData.documentConfig.employeeIdFormat]);
 
   const addSignatory = () => {
     if (newSignatory.name.trim() && newSignatory.title.trim()) {
@@ -139,16 +166,66 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-[14px] font-medium mb-2">Employee ID Format</label>
-              <input
-                type="text"
-                value={formData.documentConfig.employeeIdFormat}
-                onChange={(e) => onNestedInputChange("documentConfig", "employeeIdFormat", e.target.value)}
-                placeholder="EMP{YYYY}-{###}"
-                className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
-              />
-              <p className="mt-1 text-[12px] text-[#6b7280]">
-                Example: {FORMAT_EXAMPLES.employeeIdFormat}
-              </p>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={formData.documentConfig.employeeIdFormat}
+                  onChange={(e) => onNestedInputChange("documentConfig", "employeeIdFormat", e.target.value)}
+                  placeholder="EMP{YYYY}-{###}"
+                  className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:ring-2 ${
+                    employeeIdValidation.valid 
+                      ? 'border-[#d1d5db] focus:ring-[#f97316]' 
+                      : 'border-red-500 focus:ring-red-500'
+                  }`}
+                />
+                
+                {/* Validation Errors */}
+                {!employeeIdValidation.valid && employeeIdValidation.errors.length > 0 && (
+                  <div className="text-[12px] text-red-600">
+                    {employeeIdValidation.errors.map((error, index) => (
+                      <div key={index}>• {error}</div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Preview */}
+                {employeeIdValidation.valid && employeeIdPreview && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-[#6b7280]">Preview:</span>
+                    <code className="px-2 py-1 bg-[#f3f4f6] border border-[#d1d5db] rounded text-[12px] font-mono">
+                      {employeeIdPreview}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => setShowEmployeeIdPreview(!showEmployeeIdPreview)}
+                      className="text-[12px] text-[#f97316] hover:underline"
+                    >
+                      {showEmployeeIdPreview ? 'Hide' : 'Show'} more examples
+                    </button>
+                  </div>
+                )}
+                
+                {/* Multiple Examples */}
+                {showEmployeeIdPreview && employeeIdValidation.valid && (
+                  <div className="mt-2 p-3 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+                    <div className="text-[12px] font-medium text-[#374151] mb-2">Example IDs:</div>
+                    <div className="space-y-1">
+                      {generateEmployeeIdPreview(formData.documentConfig.employeeIdFormat, 5).map((example, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <span className="text-[11px] text-[#6b7280] w-8">#{index + 1}:</span>
+                          <code className="px-2 py-1 bg-white border border-[#d1d5db] rounded text-[11px] font-mono">
+                            {example}
+                          </code>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-[12px] text-[#6b7280]">
+                  Example: {FORMAT_EXAMPLES.employeeIdFormat}
+                </p>
+              </div>
             </div>
             
             <div>
@@ -181,16 +258,26 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
           </div>
           
           <div className="mt-4 p-4 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
-            <h4 className="text-[14px] font-medium mb-2">Format Variables:</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px] text-[#6b7280]">
-              <div><code>{'{YYYY}'}</code> - Full year (2024)</div>
-              <div><code>{'{YY}'}</code> - Short year (24)</div>
-              <div><code>{'{MM}'}</code> - Month (01-12)</div>
-              <div><code>{'{DD}'}</code> - Day (01-31)</div>
-              <div><code>{'{###}'}</code> - Sequential number</div>
-              <div><code>{'{EMP}'}</code> - Employee prefix</div>
-              <div><code>{'{DOC}'}</code> - Document prefix</div>
-              <div><code>{'{INV}'}</code> - Invoice prefix</div>
+            <h4 className="text-[14px] font-medium mb-3">Format Variables:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
+              {getFormatVariablesHelp().map((variable, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <code className="px-2 py-1 bg-white border border-[#d1d5db] rounded text-[11px] font-mono min-w-0 flex-shrink-0">
+                    {variable.placeholder}
+                  </code>
+                  <span className="text-[#6b7280]">{variable.description}</span>
+                  <span className="text-[#9ca3af]">({variable.example})</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-[12px] font-medium text-blue-800 mb-1">💡 Tips:</div>
+              <ul className="text-[11px] text-blue-700 space-y-1">
+                <li>• Use <code>{'{###}'}</code> for 3-digit sequential numbers (001, 002, 003...)</li>
+                <li>• Use <code>{'{####}'}</code> for 4-digit sequential numbers (0001, 0002, 0003...)</li>
+                <li>• Sequential numbers are automatically generated and unique</li>
+                <li>• You can combine multiple variables: <code>EMP{'{YYYY}'}-{'{DEPT}'}-{'{###}'}</code></li>
+              </ul>
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import CompanyProfileSection from "./CompanyProfileSection";
 import BusinessConfigSection from "./BusinessConfigSection";
@@ -408,10 +408,53 @@ export default function CompanySettingsPage() {
   const loadCompanySettings = async (user: User) => {
     setLoading(true);
     try {
+      console.log("Loading company settings for user:", user.uid);
+      
       // Query for organization where user is the creator
       const orgsRef = collection(db, "organizations");
       const q = query(orgsRef, where("createdBy", "==", user.uid));
-      const querySnapshot = await getDocs(q);
+      console.log("Querying organizations with createdBy:", user.uid);
+      
+      let querySnapshot = await getDocs(q);
+      console.log("Query result:", querySnapshot.empty ? "No organizations found" : `${querySnapshot.docs.length} organizations found`);
+      
+      // If no organization found with createdBy, try alternative queries
+      if (querySnapshot.empty) {
+        console.log("No organization found with createdBy, trying alternative queries...");
+        
+        // Try direct document access where user.uid matches orgId
+        try {
+          const directDocRef = doc(db, "organizations", user.uid);
+          const directDocSnapshot = await getDoc(directDocRef);
+          if (directDocSnapshot.exists()) {
+            console.log("Found organization with direct user.uid match");
+            querySnapshot = { empty: false, docs: [directDocSnapshot] } as typeof querySnapshot;
+          }
+        } catch (directError) {
+          console.log("Direct document access failed:", directError);
+        }
+        
+        // If still empty, try to find any organization the user might have access to
+        if (querySnapshot.empty) {
+          try {
+            const allOrgsQuery = query(orgsRef);
+            const allOrgsSnapshot = await getDocs(allOrgsQuery);
+            console.log("Total organizations in database:", allOrgsSnapshot.docs.length);
+            
+            // Look for organizations where the user might be the creator (check all docs)
+            for (const doc of allOrgsSnapshot.docs) {
+              const data = doc.data();
+              if (data.createdBy === user.uid || doc.id === user.uid) {
+                console.log("Found matching organization:", doc.id);
+                querySnapshot = { empty: false, docs: [doc] } as typeof querySnapshot;
+                break;
+              }
+            }
+          } catch (allOrgsError) {
+            console.log("All orgs query failed:", allOrgsError);
+          }
+        }
+      }
       
       if (!querySnapshot.empty) {
         const orgDoc = querySnapshot.docs[0];
@@ -426,6 +469,8 @@ export default function CompanySettingsPage() {
           industryType: orgData.industry || "",
           websiteUrl: orgData.website || "",
           companySize: orgData.size || "",
+          foundedDate: orgData.foundedDate || "",
+          description: orgData.description || "",
           
           // Contact Information
           primaryAddress: {
@@ -435,19 +480,95 @@ export default function CompanySettingsPage() {
             zipCode: orgData.adminAddress?.zip || "",
             country: orgData.country || ""
           },
+          mailingAddress: {
+            street: orgData.mailingAddress?.street || "",
+            city: orgData.mailingAddress?.city || "",
+            state: orgData.mailingAddress?.state || "",
+            zipCode: orgData.mailingAddress?.zip || "",
+            country: orgData.mailingAddress?.country || ""
+          },
           primaryPhone: orgData.adminPhone || "",
+          primaryEmail: orgData.adminEmail || "",
+          hrEmail: orgData.hrEmail || "",
+          supportEmail: orgData.supportEmail || "",
           
-          // Working hours timezone
+          // Branding
+          logo: orgData.logo || "",
+          favicon: orgData.favicon || "",
+          primaryColor: orgData.primaryColor || "#f97316",
+          secondaryColor: orgData.secondaryColor || "#1f2937",
+          emailSignature: orgData.emailSignature || "",
+          
+          // Working hours and business config
           workingHours: {
             ...prev.workingHours,
+            ...orgData.workingHours,
             timeZone: orgData.timezone || prev.workingHours.timeZone
           },
+          holidays: {
+            ...prev.holidays,
+            ...orgData.holidays
+          },
+          fiscalYear: {
+            ...prev.fiscalYear,
+            ...orgData.fiscalYear
+          },
           
-          // Remote work policy
+          // Office locations
+          primaryOffice: {
+            ...prev.primaryOffice,
+            ...orgData.primaryOffice
+          },
+          branchOffices: orgData.branchOffices || [],
           remoteWorkPolicy: {
+            ...prev.remoteWorkPolicy,
+            ...orgData.remoteWorkPolicy,
             allowed: orgData.remoteWork?.includes("remote") || false,
             hybrid: orgData.remoteWork?.includes("some") || false,
-            geographicRestrictions: []
+            geographicRestrictions: orgData.remoteWorkPolicy?.geographicRestrictions || []
+          },
+          
+          // Organizational structure
+          reportingStructure: {
+            ...prev.reportingStructure,
+            ...orgData.reportingStructure
+          },
+          costCenters: orgData.costCenters || [],
+          
+          // Document & Communication Settings
+          documentConfig: {
+            ...prev.documentConfig,
+            ...orgData.documentConfig,
+            employeeIdFormat: orgData.documentConfig?.employeeIdFormat || "EMP{YYYY}-{###}",
+            documentRefFormat: orgData.documentConfig?.documentRefFormat || "DOC-{YYYY}-{MM}-{###}",
+            invoiceNumberFormat: orgData.documentConfig?.invoiceNumberFormat || "INV-{YYYY}-{###}",
+            authorizedSignatories: orgData.documentConfig?.authorizedSignatories || [],
+            retentionPolicy: {
+              ...prev.documentConfig.retentionPolicy,
+              ...orgData.documentConfig?.retentionPolicy
+            }
+          },
+          communicationPrefs: {
+            ...prev.communicationPrefs,
+            ...orgData.communicationPrefs,
+            emailTemplates: {
+              ...prev.communicationPrefs.emailTemplates,
+              ...orgData.communicationPrefs?.emailTemplates
+            },
+            notificationSettings: {
+              ...prev.communicationPrefs.notificationSettings,
+              ...orgData.communicationPrefs?.notificationSettings
+            },
+            localization: {
+              ...prev.communicationPrefs.localization,
+              ...orgData.communicationPrefs?.localization
+            }
+          },
+          
+          // Compliance & Legal Settings
+          complianceSettings: {
+            ...prev.complianceSettings,
+            ...orgData.complianceSettings
           }
         }));
       }
@@ -491,12 +612,124 @@ export default function CompanySettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // TODO: Save to Firebase
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      if (!user) {
+        showModal("Error", "User not authenticated. Please log in again.", "error");
+        return;
+      }
+
+      console.log("Saving company settings for user:", user.uid);
+
+      // Find the organization where user is the creator
+      const orgsRef = collection(db, "organizations");
+      const q = query(orgsRef, where("createdBy", "==", user.uid));
+      console.log("Querying organizations for save with createdBy:", user.uid);
+      
+      let querySnapshot = await getDocs(q);
+      console.log("Save query result:", querySnapshot.empty ? "No organizations found" : `${querySnapshot.docs.length} organizations found`);
+      
+      // If no organization found with createdBy, try alternative approaches
+      if (querySnapshot.empty) {
+        console.log("No organization found with createdBy for save, trying alternatives...");
+        
+        // Try direct document access where user.uid matches orgId
+        try {
+          const directDocRef = doc(db, "organizations", user.uid);
+          const directDocSnapshot = await getDoc(directDocRef);
+          if (directDocSnapshot.exists()) {
+            console.log("Found organization with direct user.uid match for save");
+            querySnapshot = { empty: false, docs: [directDocSnapshot] } as typeof querySnapshot;
+          }
+        } catch (directError) {
+          console.log("Direct document access failed for save:", directError);
+        }
+      }
+      
+      if (querySnapshot.empty) {
+        showModal("Error", "Organization not found. Please contact support.", "error");
+        return;
+      }
+
+      const orgDoc = querySnapshot.docs[0];
+      const orgId = orgDoc.id;
+      const orgRef = doc(db, "organizations", orgId);
+
+      // Prepare the data to save
+      const updateData = {
+        // Company Profile
+        name: formData.companyName,
+        displayName: formData.displayName,
+        legalName: formData.companyName,
+        industry: formData.industryType,
+        website: formData.websiteUrl,
+        size: formData.companySize,
+        foundedDate: formData.foundedDate,
+        description: formData.description,
+        
+        // Contact Information
+        adminAddress: {
+          street: formData.primaryAddress.street,
+          city: formData.primaryAddress.city,
+          state: formData.primaryAddress.state,
+          zip: formData.primaryAddress.zipCode,
+          country: formData.primaryAddress.country
+        },
+        mailingAddress: {
+          street: formData.mailingAddress.street,
+          city: formData.mailingAddress.city,
+          state: formData.mailingAddress.state,
+          zip: formData.mailingAddress.zipCode,
+          country: formData.mailingAddress.country
+        },
+        adminPhone: formData.primaryPhone,
+        adminEmail: formData.primaryEmail,
+        hrEmail: formData.hrEmail,
+        supportEmail: formData.supportEmail,
+        
+        // Branding
+        logo: formData.logo,
+        favicon: formData.favicon,
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        emailSignature: formData.emailSignature,
+        
+        // Business Configuration
+        workingHours: formData.workingHours,
+        holidays: formData.holidays,
+        fiscalYear: formData.fiscalYear,
+        timezone: formData.workingHours.timeZone,
+        
+        // Office Locations
+        primaryOffice: formData.primaryOffice,
+        branchOffices: formData.branchOffices,
+        remoteWorkPolicy: formData.remoteWorkPolicy,
+        
+        // Organizational Structure
+        reportingStructure: formData.reportingStructure,
+        costCenters: formData.costCenters,
+        
+        // Document & Communication Settings
+        documentConfig: formData.documentConfig,
+        communicationPrefs: formData.communicationPrefs,
+        
+        // Compliance & Legal Settings
+        complianceSettings: formData.complianceSettings,
+        
+        // Update timestamp
+        lastUpdated: new Date().toISOString(),
+        updatedBy: user.uid
+      };
+
+      // Save to Firebase
+      console.log("Attempting to save to organization:", orgId);
+      console.log("Update data keys:", Object.keys(updateData));
+      
+      await setDoc(orgRef, updateData, { merge: true });
+      
       showModal("Success", "Company settings saved successfully!", "success");
+      console.log("Company settings saved successfully");
     } catch (error) {
       console.error("Error saving company settings:", error);
-      showModal("Error", "Failed to save company settings. Please try again.", "error");
+      showModal("Error", `Failed to save company settings: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, "error");
     } finally {
       setSaving(false);
     }
