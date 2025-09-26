@@ -80,7 +80,7 @@ export function useSetupGuard(user: User | null, router: { replace: (path: strin
     
     if (!setupStatus.isSetupComplete && setupStatus.redirectTo) {
       // Only redirect if we're not already on the target page
-      if (window.location.pathname !== setupStatus.redirectTo) {
+      if (typeof window !== 'undefined' && window.location.pathname !== setupStatus.redirectTo) {
         router.replace(setupStatus.redirectTo);
       }
     }

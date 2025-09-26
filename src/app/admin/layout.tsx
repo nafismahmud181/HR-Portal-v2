@@ -14,14 +14,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const authCallback = useStableAuth(async (user) => {
       if (!user) {
+        if (typeof window !== 'undefined') {
         router.replace("/login");
+        }
         return;
       }
       try {
         // Check if user has completed company setup
         const setupStatus = await checkSetupStatus(user);
         if (!setupStatus.isSetupComplete && setupStatus.redirectTo) {
-          router.replace(setupStatus.redirectTo);
+          if (typeof window !== 'undefined') {
+            router.replace(setupStatus.redirectTo);
+          }
           return;
         }
 
@@ -29,16 +33,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const q = query(cg, where("uid", "==", user.uid));
         const snap = await getDocs(q);
         if (snap.empty) {
-          router.replace("/login");
+          if (typeof window !== 'undefined') {
+            router.replace("/login");
+          }
           return;
         }
         const role = (snap.docs[0].data() as { role?: string }).role;
         if (role !== "admin") {
-          router.replace("/login");
+          if (typeof window !== 'undefined') {
+            router.replace("/login");
+          }
           return;
         }
       } catch {
-        router.replace("/login");
+        if (typeof window !== 'undefined') {
+          router.replace("/login");
+        }
         return;
       }
       setCheckingAuth(false);
@@ -68,7 +78,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <p className="mt-2 text-sm text-muted-foreground">Page not found</p>
           <button
             className="mt-6 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-            onClick={() => router.replace("/employee")}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                router.replace("/employee");
+              }
+            }}
           >
             Go to employee dashboard
           </button>
