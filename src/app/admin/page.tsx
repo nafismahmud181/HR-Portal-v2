@@ -174,6 +174,9 @@ export default function AdminDashboardPage() {
                 <p className="text-[14px] text-[#6b7280] mt-1">
                   You have <span className="text-[#f97316] font-semibold">{pending.length}</span> Pending Approvals & <span className="text-[#f97316] font-semibold">{leaveToday.length}</span> Employees on Leave Today
                 </p>
+                <div className="mt-2 px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full inline-block">
+                  ✨ New shadcn sidebar is now active!
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">

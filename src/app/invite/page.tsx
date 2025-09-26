@@ -74,22 +74,34 @@ function InviteSetPasswordPageInner() {
         roleId?: string;
         roleName?: string;
         employmentStatus?: string;
+        employeeId?: string;
+        employeeType?: string;
+        workLocation?: string;
+        managerId?: string;
+        managerName?: string;
+        startDate?: string;
+        salary?: string;
       };
       console.log("Creating employee profile...");
+      console.log("Invite data for employee creation:", invite);
+      console.log("Using employeeId from invite:", invite?.employeeId || "fallback to uid:", uid);
       try {
         await setDoc(doc(db, "organizations", presetOrg, "employees", uid), {
-          employeeId: uid,
+          employeeId: invite?.employeeId || uid, // Use assigned employeeId from invite, fallback to uid
           name: invite?.name || normalized.split("@")[0],
           email: normalized,
           departmentId: invite?.departmentId || "",
           department: invite?.departmentName || "",
           roleId: invite?.roleId || "",
           jobTitle: invite?.roleName || "",
-          manager: "",
-          hireDate: serverTimestamp(),
+          manager: invite?.managerName || "",
+          managerId: invite?.managerId || "",
+          hireDate: invite?.startDate || serverTimestamp(),
           status: "Active",
-          location: "",
-          employeeType: invite?.employmentStatus || "Full-time",
+          location: invite?.workLocation || "",
+          employeeType: invite?.employeeType || invite?.employmentStatus || "Full-time",
+          salary: invite?.salary || "",
+          onboardingCompleted: false,
           createdAt: serverTimestamp(),
         });
         console.log("Employee profile created successfully");

@@ -205,7 +205,8 @@ export function processTemplate(template: string, data: EmployeeData): string {
  */
 export function processTemplateToHtml(template: string, data: EmployeeData): string {
   const processed = processTemplate(template, data);
-  return marked(processed, { breaks: true });
+  const result = marked(processed, { breaks: true });
+  return typeof result === 'string' ? result : result.toString();
 }
 
 /**

@@ -4,6 +4,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, collectionGroup, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { generateEmployeeId, getNextSequenceNumber, EmployeeIdContext } from "@/lib/employee-id-generator";
+import { syncEmployeeIds } from "@/lib/employee-id-sync";
 
 type UserType = "employee" | "manager" | "admin";
 
@@ -94,6 +95,8 @@ export default function InviteEmployeePage() {
   const [emailSendStatus, setEmailSendStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [emailSendMessage, setEmailSendMessage] = useState("");
   const [currentStep, setCurrentStep] = useState<"invite" | "email" | "link">("invite");
+  const [autoSyncStatus, setAutoSyncStatus] = useState<"idle" | "syncing" | "completed" | "error">("idle");
+  const [autoSyncMessage, setAutoSyncMessage] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -222,6 +225,43 @@ export default function InviteEmployeePage() {
       console.log("Refreshed existing employee IDs:", employeeIds.length);
     } catch (error) {
       console.error("Error refreshing existing employee IDs:", error);
+    }
+  };
+
+  // Automatic employee ID sync after invite creation
+  const performAutoSync = async () => {
+    if (!orgId) return;
+    
+    setAutoSyncStatus("syncing");
+    setAutoSyncMessage("Synchronizing employee IDs...");
+    
+    try {
+      console.log("Performing automatic employee ID sync after invite creation");
+      
+      // Perform the sync
+      const result = await syncEmployeeIds(orgId);
+      
+      if (result.errors.length > 0) {
+        setAutoSyncStatus("error");
+        setAutoSyncMessage(`Sync completed with warnings: ${result.errors.join(', ')}`);
+        console.warn("Auto-sync completed with errors:", result.errors);
+      } else if (result.fixed > 0) {
+        setAutoSyncStatus("completed");
+        setAutoSyncMessage(`Successfully synchronized ${result.fixed} employee ID(s)`);
+        console.log(`Auto-sync completed: Fixed ${result.fixed} employee IDs`);
+      } else {
+        setAutoSyncStatus("completed");
+        setAutoSyncMessage("Employee IDs are already synchronized");
+        console.log("Auto-sync completed: No mismatches found");
+      }
+      
+      // Refresh the existing employee IDs list
+      await refreshExistingEmployeeIds();
+      
+    } catch (error) {
+      setAutoSyncStatus("error");
+      setAutoSyncMessage(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error during automatic sync:", error);
     }
   };
 
@@ -512,8 +552,11 @@ export default function InviteEmployeePage() {
       setStatus("sent");
       setMessage("Invite created successfully! Copy the link below and share it.");
       
-      // Refresh existing employee IDs after successful creation
-      await refreshExistingEmployeeIds();
+      // Perform automatic employee ID sync after successful invite creation
+      // Add a small delay to ensure the invite is fully processed
+      setTimeout(async () => {
+        await performAutoSync();
+      }, 1000);
       
       // Reset form for next invite after a short delay
       setTimeout(() => {
@@ -545,6 +588,9 @@ export default function InviteEmployeePage() {
         setEmailSendStatus("idle");
         setEmailSendMessage("");
         setCurrentStep("invite");
+        setEmployeeIdConflict(null);
+        setAutoSyncStatus("idle");
+        setAutoSyncMessage("");
       }, 3000); // Reset after 3 seconds
     } catch (err: unknown) {
       setStatus("error");
@@ -1358,6 +1404,31 @@ export default function InviteEmployeePage() {
             </button>
           </div>
         </form>
+
+        {/* Auto-Sync Status */}
+        {autoSyncStatus !== "idle" && (
+          <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              {autoSyncStatus === "syncing" && (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              )}
+              {autoSyncStatus === "completed" && (
+                <div className="text-green-600 text-lg">✅</div>
+              )}
+              {autoSyncStatus === "error" && (
+                <div className="text-red-600 text-lg">⚠️</div>
+              )}
+              <div>
+                <h4 className="text-sm font-medium text-gray-900">
+                  {autoSyncStatus === "syncing" && "Synchronizing Employee IDs..."}
+                  {autoSyncStatus === "completed" && "Employee ID Sync Complete"}
+                  {autoSyncStatus === "error" && "Employee ID Sync Warning"}
+                </h4>
+                <p className="text-sm text-gray-600 mt-1">{autoSyncMessage}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Invite Link */}
         {status === "sent" && inviteUrl && (

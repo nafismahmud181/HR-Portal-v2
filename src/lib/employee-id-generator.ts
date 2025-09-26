@@ -77,8 +77,7 @@ export function validateEmployeeIdFormat(format: string): { valid: boolean; erro
  */
 export function generateEmployeeId(
   format: string, 
-  context: EmployeeIdContext = {},
-  config?: EmployeeIdConfig
+  context: EmployeeIdContext = {}
 ): string {
   const validation = validateEmployeeIdFormat(format);
   if (!validation.valid) {
@@ -96,7 +95,7 @@ export function generateEmployeeId(
         if (placeholder.startsWith('{Y') || placeholder.startsWith('{M') || placeholder.startsWith('{D')) {
           generatedId = generatedId.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), replacer(date));
         } else {
-          generatedId = generatedId.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), replacer(context));
+          generatedId = generatedId.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), replacer(context as Date & EmployeeIdContext));
         }
       }
     }
@@ -118,7 +117,7 @@ export function previewEmployeeIdFormat(format: string): string {
   
   try {
     return generateEmployeeId(format, sampleContext);
-  } catch (error) {
+  } catch {
     return 'Invalid format';
   }
 }
@@ -173,7 +172,6 @@ export function getNextSequenceNumber(
  */
 export function generateEmployeeIdPreview(format: string, count: number = 5): string[] {
   const previews: string[] = [];
-  const date = new Date();
   
   for (let i = 1; i <= count; i++) {
     const context: EmployeeIdContext = {
@@ -185,7 +183,7 @@ export function generateEmployeeIdPreview(format: string, count: number = 5): st
     
     try {
       previews.push(generateEmployeeId(format, context));
-    } catch (error) {
+    } catch {
       previews.push('Invalid format');
     }
   }
@@ -201,7 +199,7 @@ export function parseEmployeeId(employeeId: string, format: string): Partial<Emp
   
   try {
     // Create regex pattern from format
-    let regexPattern = format
+    const regexPattern = format
       .replace(/\{YYYY\}/g, '(\\d{4})')
       .replace(/\{YY\}/g, '(\\d{2})')
       .replace(/\{MM\}/g, '(\\d{2})')
