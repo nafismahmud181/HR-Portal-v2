@@ -16,10 +16,10 @@ import {
   doc,
 } from "firebase/firestore";
 import RichTextEditor from "@/components/RichTextEditor";
-import {
-  AVAILABLE_FIELDS,
-  DEFAULT_LETTER_TEMPLATE,
-  processTemplateToHtml,
+import { 
+  AVAILABLE_FIELDS, 
+  DEFAULT_LETTER_TEMPLATE, 
+  processTemplateToHtml, 
   formatLongDate,
   type EmployeeData,
 } from "@/lib/template-utils";
@@ -131,7 +131,7 @@ function LoeEditor() {
       signatureImage?: string;
     }>
   >([]);
-
+  
   // Employee dropdown state
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -271,9 +271,11 @@ function LoeEditor() {
             <div class="issued">Issued on ${formattedIssue}</div>
             <div class="sign">
               ${signatureImgHTML}
-              <div class="sign-name">${hrName || "[HR Name]"}</div>
-              <div class="sign-meta">${hrTitle || "[HR Title]"}</div>
-              <div class="sign-meta">${companyName || "[Company Name]"}</div>
+               <div class="sign-name">${hrName || "[HR Name]"}</div>
+               <div class="sign-meta">${hrTitle || "[HR Title]"}</div>
+               <div class="sign-meta">${companyName || "[Company Name]"}</div>
+               <div class="sign-meta">${hrEmail || "[Company Email]"}</div>
+               <div class="sign-meta">${hrWebsite || "[Company Website]"}</div>
             </div>
           </div>
         </div>
@@ -450,13 +452,13 @@ function LoeEditor() {
           hrEmail,
           hrWebsite,
         };
-
+        
         // Process the rich text content with placeholders for this employee and convert to HTML
         const processedContent = processTemplateToHtml(
           letterContent,
           employeeData
         );
-
+        
         return `
         <div class="doc">
           <div class="card">
@@ -495,11 +497,13 @@ function LoeEditor() {
                 <div class="issued">Issued on ${formattedIssue}</div>
                 <div class="sign">
                   ${signatureImgHTML}
-                  <div class="sign-name">${hrName || "[HR Name]"}</div>
-                  <div class="sign-meta">${hrTitle || "[HR Title]"}</div>
-                  <div class="sign-meta">${
-                    companyName || "[Company Name]"
-                  }</div>
+                   <div class="sign-name">${hrName || "[HR Name]"}</div>
+                   <div class="sign-meta">${hrTitle || "[HR Title]"}</div>
+                   <div class="sign-meta">${
+                     companyName || "[Company Name]"
+                   }</div>
+                   <div class="sign-meta">${hrEmail || "[Company Email]"}</div>
+                   <div class="sign-meta">${hrWebsite || "[Company Website]"}</div>
                 </div>
               </div>
             </div>
@@ -648,11 +652,11 @@ function LoeEditor() {
                   orgRef,
                   where("createdBy", "==", user.uid)
                 );
-                const orgSnapshot = await getDocs(orgQuery);
-
-                if (!orgSnapshot.empty) {
-                  const orgDoc = orgSnapshot.docs[0];
-                  orgId = orgDoc.id;
+              const orgSnapshot = await getDocs(orgQuery);
+              
+              if (!orgSnapshot.empty) {
+                const orgDoc = orgSnapshot.docs[0];
+                orgId = orgDoc.id;
                   companyData = orgDoc.data();
                   console.log(
                     "Company data from created organization:",
@@ -741,7 +745,7 @@ function LoeEditor() {
                 setEmployees([]);
                 return;
               }
-
+              
               // Fetch employees from the organization's employees subcollection
               const employeesRef = collection(
                 db,
@@ -754,7 +758,7 @@ function LoeEditor() {
                 where("status", "==", "Active")
               );
               const snapshot = await getDocs(employeesQuery);
-
+              
               const employeesList: Employee[] = [];
               snapshot.forEach((doc) => {
                 const data = doc.data();
@@ -810,7 +814,7 @@ function LoeEditor() {
                   salary: salaryValue,
                 });
               });
-
+              
               setEmployees(employeesList);
             } catch (orgError) {
               console.error("Error accessing organization:", orgError);
@@ -822,7 +826,7 @@ function LoeEditor() {
                   where("status", "==", "Active")
                 );
                 const snapshot = await getDocs(employeesQuery);
-
+                
                 const employeesList: Employee[] = [];
                 snapshot.forEach((doc) => {
                   const data = doc.data();
@@ -873,7 +877,7 @@ function LoeEditor() {
                     salary: salaryValue,
                   });
                 });
-
+                
                 setEmployees(employeesList);
               } catch (fallbackError) {
                 console.error("Fallback employee fetch failed:", fallbackError);
@@ -882,7 +886,7 @@ function LoeEditor() {
             }
           }
         });
-
+        
         return () => unsubscribe();
       } catch (error) {
         console.error("Error fetching employees:", error);
@@ -924,7 +928,7 @@ function LoeEditor() {
 
   const handleEmployeeSelect = (employeeId: string) => {
     setSelectedEmployeeId(employeeId);
-
+    
     if (employeeId === "") {
       // Clear form if no employee selected
       setEmployeeName("");
@@ -936,7 +940,7 @@ function LoeEditor() {
       setEmploymentType("Full-time");
       return;
     }
-
+    
     const selectedEmployee = employees.find((emp) => emp.id === employeeId);
     console.log("Selected employee:", selectedEmployee);
     console.log("Employee compensation:", selectedEmployee?.compensation);
@@ -1215,8 +1219,8 @@ function LoeEditor() {
 
               <div className="mt-6">
                 <h3 className="text-[14px] font-medium text-[#374151]">
-                  Company
-                </h3>
+                Company
+              </h3>
                 <p className="text-[12px] text-[#6b7280] mt-1">
                   These fields are automatically filled from your company&apos;s
                   Primary Business Address
@@ -1267,9 +1271,9 @@ function LoeEditor() {
                 <input
                   value={companyCountry}
                   onChange={(e) => setCompanyCountry(e.target.value)}
-                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                />
-              </Field>
+                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                  />
+                </Field>
             </div>
 
             <div className="mt-6">
@@ -1454,9 +1458,9 @@ function LoeEditor() {
 
                   <div className="my-6 h-px bg-[#e5e7eb]" />
 
-                  <div
+                  <div 
                     className="space-y-4 leading-relaxed text-[#111827] prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{
+                    dangerouslySetInnerHTML={{ 
                       __html: processTemplateToHtml(
                         letterContent,
                         getCurrentEmployeeData()
@@ -1481,35 +1485,29 @@ function LoeEditor() {
                           unoptimized
                         />
                       )}
-                      <div className="text-[18px] font-semibold">
-                        {hrName || "[HR Name]"}
+                       <div className="text-[18px] font-semibold">
+                         {hrName || "[HR Name]"}
+                       </div>
+                      <div className="text-[12px] text-[#6b7280]">
+                         {hrTitle || "[HR Title]"}
                       </div>
                       <div className="text-[12px] text-[#6b7280]">
-                        {hrTitle || "[HR Title]"}
+                         {companyName || "[Company Name]"}
                       </div>
-                      <div className="text-[12px] text-[#6b7280]">
-                        {companyName || "[Company Name]"}
-                      </div>
+                       <div className="text-[12px] text-[#6b7280]">
+                         {hrEmail || "[Company Email]"}
                     </div>
+                       <div className="text-[12px] text-[#6b7280]">
+                         {hrWebsite || "[Company Website]"}
                   </div>
+                </div>
+              </div>
                 </div>
               </div>
             </div>
           </div>
           <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 md:p-5 h-max no-print">
-            <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
-              Issuance
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Issue date">
-                <input
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
-                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                />
-              </Field>
-            </div>
+            
 
             <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
               Letter Content
@@ -1588,6 +1586,20 @@ function LoeEditor() {
               )}
             </div>
 
+            <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
+              Issuance
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Issue date">
+                <input
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                />
+              </Field>
+            </div>
+
             <div className="mt-6">
               <h3 className="text-[14px] font-medium text-[#374151]">
                 Contact
@@ -1612,11 +1624,14 @@ function LoeEditor() {
                       <p className="text-[12px] text-[#6b7280] mb-1">
                         Signature Preview:
                       </p>
-                      <img
-                        src={signatureDataUrl}
-                        alt="Signature preview"
-                        className="max-w-[200px] max-h-[60px] border border-[#d1d5db] rounded"
-                      />
+                      <Image
+  src={signatureDataUrl}
+  alt="Signature preview"
+  width={200}
+  height={60}
+  unoptimized
+  className="max-w-[200px] max-h-[60px] border border-[#d1d5db] rounded"
+/>
                     </div>
                   )}
                 </Field>
