@@ -109,6 +109,8 @@ interface CompanySettings {
       name: string;
       title: string;
       signatureTemplate: string;
+      signatureImage?: string;
+      email: string;
     }>;
     retentionPolicy: {
       employeeRecords: number;
@@ -538,6 +540,8 @@ export default function CompanySettingsPage() {
           costCenters: orgData.costCenters || [],
           
           // Document & Communication Settings
+          // Debug: Log signatory data being loaded
+          // console.log("Loading signatories from Firebase:", orgData.documentConfig?.authorizedSignatories);
           documentConfig: {
             ...prev.documentConfig,
             ...orgData.documentConfig,
@@ -784,6 +788,8 @@ export default function CompanySettingsPage() {
       // Save to Firebase
       console.log("Attempting to save to organization:", orgId);
       console.log("Update data keys:", Object.keys(updateData));
+      console.log("Signatories being saved:", formData.documentConfig.authorizedSignatories);
+      console.log("Document config being saved:", formData.documentConfig);
       
       await setDoc(orgRef, updateData, { merge: true });
       

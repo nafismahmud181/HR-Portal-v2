@@ -17,6 +17,8 @@ interface CompanySettings {
       name: string;
       title: string;
       signatureTemplate: string;
+      signatureImage?: string;
+      email: string;
     }>;
     retentionPolicy: {
       employeeRecords: number;
@@ -91,10 +93,20 @@ const FORMAT_EXAMPLES = {
 export default function DocumentCommSection({ formData, onNestedInputChange }: DocumentCommSectionProps) {
   const [showAddSignatory, setShowAddSignatory] = useState(false);
   const [editingSignatoryIndex, setEditingSignatoryIndex] = useState<number | null>(null);
-  const [newSignatory, setNewSignatory] = useState({
+  const [savingSignatory, setSavingSignatory] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [newSignatory, setNewSignatory] = useState<{
+    name: string;
+    title: string;
+    signatureTemplate: string;
+    signatureImage?: string;
+    email: string;
+  }>({
     name: "",
     title: "",
-    signatureTemplate: ""
+    signatureTemplate: "",
+    signatureImage: undefined,
+    email: ""
   });
   
   // Employee ID format preview and validation
@@ -118,27 +130,66 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
     }
   }, [formData.documentConfig.employeeIdFormat]);
 
-  const addSignatory = () => {
-    if (newSignatory.name.trim() && newSignatory.title.trim()) {
-      const updatedSignatories = [...formData.documentConfig.authorizedSignatories, { ...newSignatory }];
-      onNestedInputChange("documentConfig", "authorizedSignatories", updatedSignatories);
-      setNewSignatory({ name: "", title: "", signatureTemplate: "" });
-      setShowAddSignatory(false);
+  const addSignatory = async () => {
+    if (newSignatory.name.trim() && newSignatory.title.trim() && newSignatory.email.trim()) {
+      setSavingSignatory(true);
+      try {
+        const updatedSignatories = [...formData.documentConfig.authorizedSignatories, { ...newSignatory }];
+        onNestedInputChange("documentConfig", "authorizedSignatories", updatedSignatories);
+        setNewSignatory({ name: "", title: "", signatureTemplate: "", signatureImage: undefined, email: "" });
+        setShowAddSignatory(false);
+        
+        // Show success feedback
+        console.log("Signatory added successfully to local state:", newSignatory);
+        console.log("Total signatories in local state:", updatedSignatories.length);
+        console.log("⚠️ IMPORTANT: Click 'Save Changes' at bottom of page to persist to Firebase!");
+      } catch (error) {
+        console.error("Error adding signatory:", error);
+      } finally {
+        setSavingSignatory(false);
+      }
     }
   };
 
-  const updateSignatory = (index: number) => {
-    const updatedSignatories = formData.documentConfig.authorizedSignatories.map((signatory, i) => 
-      i === index ? { ...newSignatory } : signatory
-    );
-    onNestedInputChange("documentConfig", "authorizedSignatories", updatedSignatories);
-    setEditingSignatoryIndex(null);
-    setNewSignatory({ name: "", title: "", signatureTemplate: "" });
+  const updateSignatory = async (index: number) => {
+    setSavingSignatory(true);
+    try {
+      const updatedSignatories = formData.documentConfig.authorizedSignatories.map((signatory, i) => 
+        i === index ? { ...newSignatory } : signatory
+      );
+      onNestedInputChange("documentConfig", "authorizedSignatories", updatedSignatories);
+      setEditingSignatoryIndex(null);
+      setNewSignatory({ name: "", title: "", signatureTemplate: "", signatureImage: undefined, email: "" });
+      
+      console.log("Signatory updated successfully. Remember to save changes to persist to Firebase.");
+    } catch (error) {
+      console.error("Error updating signatory:", error);
+    } finally {
+      setSavingSignatory(false);
+    }
   };
 
-  const removeSignatory = (index: number) => {
-    const updatedSignatories = formData.documentConfig.authorizedSignatories.filter((_, i) => i !== index);
-    onNestedInputChange("documentConfig", "authorizedSignatories", updatedSignatories);
+  const removeSignatory = async (index: number) => {
+    setSavingSignatory(true);
+    try {
+      const updatedSignatories = formData.documentConfig.authorizedSignatories.filter((_, i) => i !== index);
+      onNestedInputChange("documentConfig", "authorizedSignatories", updatedSignatories);
+      setConfirmDelete(null);
+      
+      console.log("Signatory removed successfully. Remember to save changes to persist to Firebase.");
+    } catch (error) {
+      console.error("Error removing signatory:", error);
+    } finally {
+      setSavingSignatory(false);
+    }
+  };
+
+  const handleDeleteClick = (index: number) => {
+    setConfirmDelete(index);
+  };
+
+  const cancelDelete = () => {
+    setConfirmDelete(null);
   };
 
   const startEditSignatory = (index: number) => {
@@ -151,7 +202,7 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
   const cancelEdit = () => {
     setShowAddSignatory(false);
     setEditingSignatoryIndex(null);
-    setNewSignatory({ name: "", title: "", signatureTemplate: "" });
+    setNewSignatory({ name: "", title: "", signatureTemplate: "", signatureImage: undefined, email: "" });
   };
 
   return (
@@ -285,7 +336,12 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
         {/* Digital Signature Settings */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[16px] font-medium">Digital Signature Settings</h3>
+            <div>
+              <h3 className="text-[16px] font-medium">Digital Signature Settings</h3>
+              <p className="text-[12px] text-[#6b7280] mt-1">
+                Signatory changes are saved locally. Click &quot;Save Changes&quot; at the bottom of the page to persist to Firebase.
+              </p>
+            </div>
             <button
               onClick={() => setShowAddSignatory(true)}
               className="px-4 py-2 bg-[#f97316] text-white rounded-md text-[14px] font-medium hover:bg-[#ea580c]"
@@ -334,14 +390,59 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
                     className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                   />
                 </div>
+                
+                <div>
+                  <label className="block text-[14px] font-medium mb-2">Signature (Image)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setNewSignatory(prev => ({ ...prev, signatureImage: event.target?.result as string }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
+                  />
+                  {newSignatory.signatureImage && (
+                    <div className="mt-2">
+                      <img 
+                        src={newSignatory.signatureImage} 
+                        alt="Signature preview" 
+                        className="max-w-[200px] max-h-[100px] border border-[#d1d5db] rounded"
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-[14px] font-medium mb-2">
+                    Email (Company Email) *
+                  </label>
+                  <input
+                    type="email"
+                    value={newSignatory.email}
+                    onChange={(e) => setNewSignatory(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="company@example.com"
+                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
+                  />
+                  <p className="text-[12px] text-[#6b7280] mt-1">
+                    This email will be treated as the company email for this signatory
+                  </p>
+                </div>
               </div>
               
               <div className="flex gap-3 mt-4">
                 <button
                   onClick={editingSignatoryIndex !== null ? () => updateSignatory(editingSignatoryIndex) : addSignatory}
-                  className="px-4 py-2 bg-[#f97316] text-white rounded-md text-[14px] font-medium hover:bg-[#ea580c]"
+                  disabled={savingSignatory}
+                  className="px-4 py-2 bg-[#f97316] text-white rounded-md text-[14px] font-medium hover:bg-[#ea580c] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingSignatoryIndex !== null ? "Update Signatory" : "Add Signatory"}
+                  {savingSignatory ? "Saving..." : editingSignatoryIndex !== null ? "Update Signatory" : "Add Signatory"}
                 </button>
                 <button
                   onClick={cancelEdit}
@@ -367,7 +468,8 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
                     <tr>
                       <th className="text-left p-3 text-[14px] font-medium">Name</th>
                       <th className="text-left p-3 text-[14px] font-medium">Title</th>
-                      <th className="text-left p-3 text-[14px] font-medium">Signature Template</th>
+                      <th className="text-left p-3 text-[14px] font-medium">Email</th>
+                      <th className="text-left p-3 text-[14px] font-medium">Signature</th>
                       <th className="text-left p-3 text-[14px] font-medium">Actions</th>
                     </tr>
                   </thead>
@@ -376,7 +478,18 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
                       <tr key={index} className="border-t border-[#e5e7eb]">
                         <td className="p-3 text-[14px]">{signatory.name}</td>
                         <td className="p-3 text-[14px]">{signatory.title}</td>
-                        <td className="p-3 text-[14px] max-w-xs truncate">{signatory.signatureTemplate || "—"}</td>
+                        <td className="p-3 text-[14px]">{signatory.email || "—"}</td>
+                        <td className="p-3 text-[14px]">
+                          {signatory.signatureImage ? (
+                            <img 
+                              src={signatory.signatureImage} 
+                              alt="Signature" 
+                              className="max-w-[60px] max-h-[30px] border border-[#d1d5db] rounded"
+                            />
+                          ) : (
+                            <span className="text-[#6b7280]">No image</span>
+                          )}
+                        </td>
                         <td className="p-3">
                           <div className="flex gap-2">
                             <button
@@ -386,7 +499,7 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
                               Edit
                             </button>
                             <button
-                              onClick={() => removeSignatory(index)}
+                              onClick={() => handleDeleteClick(index)}
                               className="px-3 py-1 text-[12px] text-[#dc2626] border border-[#dc2626] rounded hover:bg-[#fef2f2]"
                             >
                               Remove
@@ -400,6 +513,33 @@ export default function DocumentCommSection({ formData, onNestedInputChange }: D
               </div>
             )}
           </div>
+
+          {/* Delete Confirmation Dialog */}
+          {confirmDelete !== null && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 className="text-[16px] font-medium mb-4">Confirm Delete</h3>
+                <p className="text-[14px] text-[#6b7280] mb-6">
+                  Are you sure you want to remove &quot;{formData.documentConfig.authorizedSignatories[confirmDelete]?.name}&quot; from the authorized signatories?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => removeSignatory(confirmDelete)}
+                    disabled={savingSignatory}
+                    className="px-4 py-2 bg-[#dc2626] text-white rounded-md text-[14px] font-medium hover:bg-[#b91c1c] disabled:opacity-50"
+                  >
+                    {savingSignatory ? "Removing..." : "Delete"}
+                  </button>
+                  <button
+                    onClick={cancelDelete}
+                    className="px-4 py-2 border border-[#d1d5db] text-[#374151] rounded-md text-[14px] font-medium hover:bg-[#f9fafb]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Document Retention Policy */}
