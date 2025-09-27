@@ -6,14 +6,22 @@ import { useParams } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, collectionGroup, getDocs, getDoc, query, where, doc } from "firebase/firestore";
+import {
+  collection,
+  collectionGroup,
+  getDocs,
+  getDoc,
+  query,
+  where,
+  doc,
+} from "firebase/firestore";
 import RichTextEditor from "@/components/RichTextEditor";
-import { 
-  AVAILABLE_FIELDS, 
-  DEFAULT_LETTER_TEMPLATE, 
-  processTemplateToHtml, 
+import {
+  AVAILABLE_FIELDS,
+  DEFAULT_LETTER_TEMPLATE,
+  processTemplateToHtml,
   formatLongDate,
-  type EmployeeData 
+  type EmployeeData,
 } from "@/lib/template-utils";
 
 // Employee interface for dropdown
@@ -106,14 +114,24 @@ function LoeEditor() {
   const [hrName, setHrName] = useState("");
   const [hrTitle, setHrTitle] = useState("");
   const [hrEmail, setHrEmail] = useState("");
-  const [hrPhone, setHrPhone] = useState("");
+  const [hrWebsite, setHrWebsite] = useState("");
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [letterContent, setLetterContent] = useState(DEFAULT_LETTER_TEMPLATE);
   const [useRichEditor, setUseRichEditor] = useState(true);
   const [templateName, setTemplateName] = useState("");
-  const [savedTemplates, setSavedTemplates] = useState<Array<{ name: string; content: string; id: string }>>([]);
+  const [savedTemplates, setSavedTemplates] = useState<
+    Array<{ name: string; content: string; id: string }>
+  >([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  
+  const [availableSignatories, setAvailableSignatories] = useState<
+    Array<{
+      name: string;
+      title: string;
+      email: string;
+      signatureImage?: string;
+    }>
+  >([]);
+
   // Employee dropdown state
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -174,19 +192,24 @@ function LoeEditor() {
     hrName,
     hrTitle,
     hrEmail,
-    hrPhone,
+    hrWebsite,
   });
 
   function handleExport() {
-    const formattedJoin = formatLongDate(dateOfJoining) || '[Date of Joining]';
+    const formattedJoin = formatLongDate(dateOfJoining) || "[Date of Joining]";
     const formattedIssue = formatLongDate(issueDate);
-    const addressHtml = `${companyAddressLine || '[Street Address]'}<br/>${companyCityLine || '[City, State, Zip]'}<br/>${companyCountry || '[Country]'}`;
+    const addressHtml = `${companyAddressLine || "[Street Address]"}<br/>${
+      companyCityLine || "[City, State, Zip]"
+    }<br/>${companyCountry || "[Country]"}`;
     const signatureImgHTML = signatureDataUrl
       ? `<img src="${signatureDataUrl}" style="height:64px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
       : "";
 
     // Process the rich text content with placeholders and convert to HTML
-    const processedContent = processTemplateToHtml(letterContent, getCurrentEmployeeData());
+    const processedContent = processTemplateToHtml(
+      letterContent,
+      getCurrentEmployeeData()
+    );
 
     const html = `<!doctype html>
 <html>
@@ -219,13 +242,23 @@ function LoeEditor() {
       <div class="card">
         <div class="header"><div class="title">LETTER OF EMPLOYMENT</div></div>
         <div class="content">
-          <div class="row"><div class="label">Name</div><div class="value">${employeeName || '[Name]'}</div></div>
-          <div class="row"><div class="label">Employee ID</div><div class="value">${employeeId || '[Employee ID]'}</div></div>
-          <div class="row"><div class="label">Designation</div><div class="value">${designation || '[Designation]'}</div></div>
-          <div class="row"><div class="label">Department</div><div class="value">${department || '[Department]'}</div></div>
+          <div class="row"><div class="label">Name</div><div class="value">${
+            employeeName || "[Name]"
+          }</div></div>
+          <div class="row"><div class="label">Employee ID</div><div class="value">${
+            employeeId || "[Employee ID]"
+          }</div></div>
+          <div class="row"><div class="label">Designation</div><div class="value">${
+            designation || "[Designation]"
+          }</div></div>
+          <div class="row"><div class="label">Department</div><div class="value">${
+            department || "[Department]"
+          }</div></div>
           <div class="row"><div class="label">Employment</div><div class="value">${employmentType}</div></div>
           <div class="row"><div class="label">Joined</div><div class="value">${formattedJoin}</div></div>
-          <div class="row"><div class="label">Salary</div><div class="value">${currentSalary || '[Current Salary]'}</div></div>
+          <div class="row"><div class="label">Salary</div><div class="value">${
+            currentSalary || "[Current Salary]"
+          }</div></div>
           <div class="row"><div class="label">Address</div><div class="value">${addressHtml}</div></div>
 
           <div class="rule"></div>
@@ -238,9 +271,9 @@ function LoeEditor() {
             <div class="issued">Issued on ${formattedIssue}</div>
             <div class="sign">
               ${signatureImgHTML}
-              <div class="sign-name">${hrName || '[HR Name]'}</div>
-              <div class="sign-meta">${hrTitle || '[HR Title]'}</div>
-              <div class="sign-meta">${companyName || '[Company Name]'}</div>
+              <div class="sign-name">${hrName || "[HR Name]"}</div>
+              <div class="sign-meta">${hrTitle || "[HR Title]"}</div>
+              <div class="sign-meta">${companyName || "[Company Name]"}</div>
             </div>
           </div>
         </div>
@@ -387,7 +420,9 @@ function LoeEditor() {
   function handleExportBulk() {
     if (bulkItems.length === 0) return;
     const formattedIssue = formatLongDate(issueDate);
-    const addressHtml = `${companyAddressLine || '[Street Address]'}<br/>${companyCityLine || '[City, State, Zip]'}<br/>${companyCountry || '[Country]'}`;
+    const addressHtml = `${companyAddressLine || "[Street Address]"}<br/>${
+      companyCityLine || "[City, State, Zip]"
+    }<br/>${companyCountry || "[Country]"}`;
     const signatureImgHTML = signatureDataUrl
       ? `<img src="${signatureDataUrl}" style="height:60px;object-fit:contain;display:block;margin-left:auto;margin-bottom:4px;" />`
       : "";
@@ -413,35 +448,40 @@ function LoeEditor() {
           hrName,
           hrTitle,
           hrEmail,
-          hrPhone,
+          hrWebsite,
         };
-        
+
         // Process the rich text content with placeholders for this employee and convert to HTML
-        const processedContent = processTemplateToHtml(letterContent, employeeData);
-        
+        const processedContent = processTemplateToHtml(
+          letterContent,
+          employeeData
+        );
+
         return `
         <div class="doc">
           <div class="card">
             <div class="header"><div class="title">LETTER OF EMPLOYMENT</div></div>
             <div class="content">
               <div class="row"><div class="label">Name</div><div class="value">${
-                it.employeeName || '[Name]'
+                it.employeeName || "[Name]"
               }</div></div>
               <div class="row"><div class="label">Employee ID</div><div class="value">${
-                it.employeeId || '[Employee ID]'
+                it.employeeId || "[Employee ID]"
               }</div></div>
               <div class="row"><div class="label">Designation</div><div class="value">${
-                it.designation || '[Designation]'
+                it.designation || "[Designation]"
               }</div></div>
               <div class="row"><div class="label">Department</div><div class="value">${
-                it.department || '[Department]'
+                it.department || "[Department]"
               }</div></div>
               <div class="row"><div class="label">Employment</div><div class="value">${
                 it.employmentType
               }</div></div>
-              <div class="row"><div class="label">Joined</div><div class="value">${formatLongDate(it.dateOfJoining) || '[Date of Joining]'}</div></div>
+              <div class="row"><div class="label">Joined</div><div class="value">${
+                formatLongDate(it.dateOfJoining) || "[Date of Joining]"
+              }</div></div>
               <div class="row"><div class="label">Salary</div><div class="value">${
-                it.currentSalary || '[Current Salary]'
+                it.currentSalary || "[Current Salary]"
               }</div></div>
               <div class="row"><div class="label">Address</div><div class="value">${addressHtml}</div></div>
 
@@ -455,9 +495,11 @@ function LoeEditor() {
                 <div class="issued">Issued on ${formattedIssue}</div>
                 <div class="sign">
                   ${signatureImgHTML}
-                  <div class="sign-name">${hrName || '[HR Name]'}</div>
-                  <div class="sign-meta">${hrTitle || '[HR Title]'}</div>
-                  <div class="sign-meta">${companyName || '[Company Name]'}</div>
+                  <div class="sign-name">${hrName || "[HR Name]"}</div>
+                  <div class="sign-meta">${hrTitle || "[HR Title]"}</div>
+                  <div class="sign-meta">${
+                    companyName || "[Company Name]"
+                  }</div>
                 </div>
               </div>
             </div>
@@ -532,32 +574,39 @@ function LoeEditor() {
       name: templateName.trim(),
       content: letterContent,
     };
-    setSavedTemplates(prev => [...prev, newTemplate]);
+    setSavedTemplates((prev) => [...prev, newTemplate]);
     setTemplateName("");
     setShowSaveDialog(false);
     // Save to localStorage
-    localStorage.setItem('loe_templates', JSON.stringify([...savedTemplates, newTemplate]));
+    localStorage.setItem(
+      "loe_templates",
+      JSON.stringify([...savedTemplates, newTemplate])
+    );
   }
 
-  function loadTemplate(template: { name: string; content: string; id: string }) {
+  function loadTemplate(template: {
+    name: string;
+    content: string;
+    id: string;
+  }) {
     setLetterContent(template.content);
     setShowSaveDialog(false);
   }
 
   function deleteTemplate(templateId: string) {
-    const updatedTemplates = savedTemplates.filter(t => t.id !== templateId);
+    const updatedTemplates = savedTemplates.filter((t) => t.id !== templateId);
     setSavedTemplates(updatedTemplates);
-    localStorage.setItem('loe_templates', JSON.stringify(updatedTemplates));
+    localStorage.setItem("loe_templates", JSON.stringify(updatedTemplates));
   }
 
   // Load templates from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem('loe_templates');
+    const stored = localStorage.getItem("loe_templates");
     if (stored) {
       try {
         setSavedTemplates(JSON.parse(stored));
       } catch (e) {
-        console.error('Failed to load saved templates:', e);
+        console.error("Failed to load saved templates:", e);
       }
     }
   }, []);
@@ -573,20 +622,20 @@ function LoeEditor() {
               // Find organization using the same pattern as other admin pages
               let orgId = null;
               let companyData = null;
-              
+
               // First try: find org where user is a member (most common case)
               const cg = collectionGroup(db, "users");
               const q = query(cg, where("uid", "==", user.uid));
               const snap = await getDocs(q);
-              
+
               if (!snap.empty) {
                 const ref = snap.docs[0].ref;
                 const parentOrg = ref.parent.parent;
                 orgId = parentOrg ? parentOrg.id : null;
-                
+
                 if (orgId) {
                   // Get organization data
-                  const orgDoc = await getDoc(doc(db, 'organizations', orgId));
+                  const orgDoc = await getDoc(doc(db, "organizations", orgId));
                   if (orgDoc.exists()) {
                     companyData = orgDoc.data();
                     console.log("Company data from organization:", companyData);
@@ -594,59 +643,118 @@ function LoeEditor() {
                 }
               } else {
                 // Fallback: find org where user is the creator
-                const orgRef = collection(db, 'organizations');
-                const orgQuery = query(orgRef, where('createdBy', '==', user.uid));
+                const orgRef = collection(db, "organizations");
+                const orgQuery = query(
+                  orgRef,
+                  where("createdBy", "==", user.uid)
+                );
                 const orgSnapshot = await getDocs(orgQuery);
-                
+
                 if (!orgSnapshot.empty) {
                   const orgDoc = orgSnapshot.docs[0];
                   orgId = orgDoc.id;
                   companyData = orgDoc.data();
-                  console.log("Company data from created organization:", companyData);
+                  console.log(
+                    "Company data from created organization:",
+                    companyData
+                  );
                 }
               }
-              
+
               // Auto-populate company fields with organization data
               if (companyData) {
                 if (companyData.name) setCompanyName(companyData.name);
                 if (companyData.adminAddress) {
-                  setCompanyStreet(companyData.adminAddress.street || '');
-                  setCompanyCity(companyData.adminAddress.city || '');
-                  setCompanyState(companyData.adminAddress.state || '');
-                  setCompanyZip(companyData.adminAddress.zip || '');
-                  setCompanyCountry(companyData.adminAddress.country || '');
+                  setCompanyStreet(companyData.adminAddress.street || "");
+                  setCompanyCity(companyData.adminAddress.city || "");
+                  setCompanyState(companyData.adminAddress.state || "");
+                  setCompanyZip(companyData.adminAddress.zip || "");
+                  setCompanyCountry(companyData.adminAddress.country || "");
                 }
-                
+
                 // Also try primaryOffice if adminAddress is not available
                 if (!companyData.adminAddress && companyData.primaryOffice) {
-                  setCompanyStreet(companyData.primaryOffice.address || '');
-                  setCompanyCity(companyData.primaryOffice.city || '');
-                  setCompanyState(companyData.primaryOffice.state || '');
-                  setCompanyZip(companyData.primaryOffice.zipCode || '');
-                  setCompanyCountry(companyData.primaryOffice.country || '');
+                  setCompanyStreet(companyData.primaryOffice.address || "");
+                  setCompanyCity(companyData.primaryOffice.city || "");
+                  setCompanyState(companyData.primaryOffice.state || "");
+                  setCompanyZip(companyData.primaryOffice.zipCode || "");
+                  setCompanyCountry(companyData.primaryOffice.country || "");
                 }
-                
+
                 // Also try mailingAddress as fallback
-                if (!companyData.adminAddress && !companyData.primaryOffice && companyData.mailingAddress) {
-                  setCompanyStreet(companyData.mailingAddress.street || '');
-                  setCompanyCity(companyData.mailingAddress.city || '');
-                  setCompanyState(companyData.mailingAddress.state || '');
-                  setCompanyZip(companyData.mailingAddress.zip || '');
-                  setCompanyCountry(companyData.mailingAddress.country || '');
+                if (
+                  !companyData.adminAddress &&
+                  !companyData.primaryOffice &&
+                  companyData.mailingAddress
+                ) {
+                  setCompanyStreet(companyData.mailingAddress.street || "");
+                  setCompanyCity(companyData.mailingAddress.city || "");
+                  setCompanyState(companyData.mailingAddress.state || "");
+                  setCompanyZip(companyData.mailingAddress.zip || "");
+                  setCompanyCountry(companyData.mailingAddress.country || "");
+                }
+
+                // Auto-populate website from company profile
+                if (companyData.website) {
+                  setHrWebsite(companyData.website);
+                  console.log(
+                    "Auto-populated website from company profile:",
+                    companyData.website
+                  );
+                }
+
+                // Auto-populate HR contact fields from signatory data
+                if (
+                  companyData.documentConfig &&
+                  companyData.documentConfig.authorizedSignatories &&
+                  companyData.documentConfig.authorizedSignatories.length > 0
+                ) {
+                  // Store all available signatories
+                  setAvailableSignatories(
+                    companyData.documentConfig.authorizedSignatories
+                  );
+
+                  // Use the first signatory as the default HR contact
+                  const firstSignatory =
+                    companyData.documentConfig.authorizedSignatories[0];
+                  console.log(
+                    "Auto-populating HR fields from signatory:",
+                    firstSignatory
+                  );
+
+                  if (firstSignatory.name) setHrName(firstSignatory.name);
+                  if (firstSignatory.title) setHrTitle(firstSignatory.title);
+                  if (firstSignatory.email) setHrEmail(firstSignatory.email);
+
+                  // Auto-populate signature image from signatory
+                  if (firstSignatory.signatureImage) {
+                    setSignatureDataUrl(firstSignatory.signatureImage);
+                    console.log(
+                      "Auto-populated signature image from signatory"
+                    );
+                  }
                 }
               }
-              
+
               if (!orgId) {
-                console.error('No organization found for user');
+                console.error("No organization found for user");
                 setEmployees([]);
                 return;
               }
-              
+
               // Fetch employees from the organization's employees subcollection
-              const employeesRef = collection(db, 'organizations', orgId, 'employees');
-              const employeesQuery = query(employeesRef, where('status', '==', 'Active'));
+              const employeesRef = collection(
+                db,
+                "organizations",
+                orgId,
+                "employees"
+              );
+              const employeesQuery = query(
+                employeesRef,
+                where("status", "==", "Active")
+              );
               const snapshot = await getDocs(employeesQuery);
-              
+
               const employeesList: Employee[] = [];
               snapshot.forEach((doc) => {
                 const data = doc.data();
@@ -654,15 +762,21 @@ function LoeEditor() {
                 console.log("Salary field:", data.salary);
                 console.log("Compensation field:", data.compensation);
                 console.log("All data fields:", Object.keys(data));
-                
+
                 // Handle hireDate conversion - convert Firestore timestamp to string if needed
-                let hireDateValue = '';
+                let hireDateValue = "";
                 if (data.hireDate) {
-                  if (typeof data.hireDate === 'string') {
+                  if (typeof data.hireDate === "string") {
                     hireDateValue = data.hireDate;
-                  } else if (data.hireDate.toDate && typeof data.hireDate.toDate === 'function') {
+                  } else if (
+                    data.hireDate.toDate &&
+                    typeof data.hireDate.toDate === "function"
+                  ) {
                     // Firestore timestamp
-                    hireDateValue = data.hireDate.toDate().toISOString().slice(0, 10);
+                    hireDateValue = data.hireDate
+                      .toDate()
+                      .toISOString()
+                      .slice(0, 10);
                   } else if (data.hireDate.seconds) {
                     // Firestore timestamp object
                     const date = new Date(data.hireDate.seconds * 1000);
@@ -671,48 +785,62 @@ function LoeEditor() {
                     hireDateValue = data.hireDate;
                   }
                 }
-                
+
                 // Try multiple possible salary field names
-                const salaryValue = data.salary || data.compensation || data.currentSalary || data.annualSalary || '';
+                const salaryValue =
+                  data.salary ||
+                  data.compensation ||
+                  data.currentSalary ||
+                  data.annualSalary ||
+                  "";
                 console.log("Final salary value:", salaryValue);
-                
+
                 employeesList.push({
                   id: doc.id,
-                  name: data.name || '',
+                  name: data.name || "",
                   employeeId: data.employeeId || doc.id,
-                  email: data.email || '',
-                  department: data.department || '',
-                  jobTitle: data.jobTitle || '',
+                  email: data.email || "",
+                  department: data.department || "",
+                  jobTitle: data.jobTitle || "",
                   hireDate: hireDateValue,
-                  employeeType: data.employeeType || 'Full-time',
-                  status: data.status || 'Active',
-                  location: data.location || '',
-                  compensation: data.compensation || '',
+                  employeeType: data.employeeType || "Full-time",
+                  status: data.status || "Active",
+                  location: data.location || "",
+                  compensation: data.compensation || "",
                   salary: salaryValue,
                 });
               });
-              
+
               setEmployees(employeesList);
             } catch (orgError) {
-              console.error('Error accessing organization:', orgError);
+              console.error("Error accessing organization:", orgError);
               // If organization access fails, try direct employees collection as fallback
               try {
-                const employeesRef = collection(db, 'employees');
-                const employeesQuery = query(employeesRef, where('status', '==', 'Active'));
+                const employeesRef = collection(db, "employees");
+                const employeesQuery = query(
+                  employeesRef,
+                  where("status", "==", "Active")
+                );
                 const snapshot = await getDocs(employeesQuery);
-                
+
                 const employeesList: Employee[] = [];
                 snapshot.forEach((doc) => {
                   const data = doc.data();
-                  
+
                   // Handle hireDate conversion - convert Firestore timestamp to string if needed
-                  let hireDateValue = '';
+                  let hireDateValue = "";
                   if (data.hireDate) {
-                    if (typeof data.hireDate === 'string') {
+                    if (typeof data.hireDate === "string") {
                       hireDateValue = data.hireDate;
-                    } else if (data.hireDate.toDate && typeof data.hireDate.toDate === 'function') {
+                    } else if (
+                      data.hireDate.toDate &&
+                      typeof data.hireDate.toDate === "function"
+                    ) {
                       // Firestore timestamp
-                      hireDateValue = data.hireDate.toDate().toISOString().slice(0, 10);
+                      hireDateValue = data.hireDate
+                        .toDate()
+                        .toISOString()
+                        .slice(0, 10);
                     } else if (data.hireDate.seconds) {
                       // Firestore timestamp object
                       const date = new Date(data.hireDate.seconds * 1000);
@@ -721,38 +849,43 @@ function LoeEditor() {
                       hireDateValue = data.hireDate;
                     }
                   }
-                  
+
                   // Try multiple possible salary field names
-                  const salaryValue = data.salary || data.compensation || data.currentSalary || data.annualSalary || '';
-                  
+                  const salaryValue =
+                    data.salary ||
+                    data.compensation ||
+                    data.currentSalary ||
+                    data.annualSalary ||
+                    "";
+
                   employeesList.push({
                     id: doc.id,
-                    name: data.name || '',
+                    name: data.name || "",
                     employeeId: data.employeeId || doc.id,
-                    email: data.email || '',
-                    department: data.department || '',
-                    jobTitle: data.jobTitle || '',
+                    email: data.email || "",
+                    department: data.department || "",
+                    jobTitle: data.jobTitle || "",
                     hireDate: hireDateValue,
-                    employeeType: data.employeeType || 'Full-time',
-                    status: data.status || 'Active',
-                    location: data.location || '',
-                    compensation: data.compensation || '',
+                    employeeType: data.employeeType || "Full-time",
+                    status: data.status || "Active",
+                    location: data.location || "",
+                    compensation: data.compensation || "",
                     salary: salaryValue,
                   });
                 });
-                
+
                 setEmployees(employeesList);
               } catch (fallbackError) {
-                console.error('Fallback employee fetch failed:', fallbackError);
+                console.error("Fallback employee fetch failed:", fallbackError);
                 setEmployees([]);
               }
             }
           }
         });
-        
+
         return () => unsubscribe();
       } catch (error) {
-        console.error('Error fetching employees:', error);
+        console.error("Error fetching employees:", error);
       } finally {
         setLoadingEmployees(false);
       }
@@ -762,9 +895,36 @@ function LoeEditor() {
   }, []);
 
   // Auto-populate form fields when employee is selected
+  // Handle signatory selection
+  const handleSignatorySelect = (signatory: {
+    name: string;
+    title: string;
+    email: string;
+    signatureImage?: string;
+  }) => {
+    setHrName(signatory.name);
+    setHrTitle(signatory.title);
+    setHrEmail(signatory.email);
+
+    // Update signature image if available
+    if (signatory.signatureImage) {
+      setSignatureDataUrl(signatory.signatureImage);
+      console.log(
+        "Updated signature image from selected signatory:",
+        signatory.name
+      );
+    } else {
+      // Clear signature if selected signatory doesn't have one
+      setSignatureDataUrl(null);
+      console.log(
+        "Cleared signature image - selected signatory has no signature"
+      );
+    }
+  };
+
   const handleEmployeeSelect = (employeeId: string) => {
     setSelectedEmployeeId(employeeId);
-    
+
     if (employeeId === "") {
       // Clear form if no employee selected
       setEmployeeName("");
@@ -776,22 +936,23 @@ function LoeEditor() {
       setEmploymentType("Full-time");
       return;
     }
-    
-    const selectedEmployee = employees.find(emp => emp.id === employeeId);
+
+    const selectedEmployee = employees.find((emp) => emp.id === employeeId);
     console.log("Selected employee:", selectedEmployee);
     console.log("Employee compensation:", selectedEmployee?.compensation);
     console.log("Employee salary:", selectedEmployee?.salary);
-    
+
     if (selectedEmployee) {
       setEmployeeName(selectedEmployee.name);
       setDesignation(selectedEmployee.jobTitle);
       setDepartment(selectedEmployee.department);
       setEmployeeId(selectedEmployee.employeeId);
-      
+
       // Set hireDate (already converted to string during fetch)
       setDateOfJoining(selectedEmployee.hireDate || "");
-      
-      const salaryValue = selectedEmployee.compensation || selectedEmployee.salary || "";
+
+      const salaryValue =
+        selectedEmployee.compensation || selectedEmployee.salary || "";
       console.log("Setting salary value:", salaryValue);
       setCurrentSalary(salaryValue);
       setEmploymentType(selectedEmployee.employeeType);
@@ -887,8 +1048,8 @@ function LoeEditor() {
         </div>
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-[360px_1fr] gap-6">
+      <div className="max-w-[1400px] mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr_300px] gap-6">
           {/* Left: Form */}
           <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 md:p-5 h-max no-print">
             <h2 className="text-[16px] font-semibold">Bulk Create</h2>
@@ -918,11 +1079,12 @@ function LoeEditor() {
                 </div>
               </div>
 
-
               <h2 className="text-[16px] font-semibold">Employment Details</h2>
 
               <div className="mb-4">
-                <label className="block mb-1 text-[12px] text-[#6b7280]">Select Employee</label>
+                <label className="block mb-1 text-[12px] text-[#6b7280]">
+                  Select Employee
+                </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <select
                     value={selectedEmployeeId}
@@ -931,7 +1093,9 @@ function LoeEditor() {
                     disabled={loadingEmployees}
                   >
                     <option value="">
-                      {loadingEmployees ? "Loading employees..." : "Select an employee to auto-fill"}
+                      {loadingEmployees
+                        ? "Loading employees..."
+                        : "Select an employee to auto-fill"}
                     </option>
                     {employees.map((employee) => (
                       <option key={employee.id} value={employee.id}>
@@ -951,7 +1115,8 @@ function LoeEditor() {
                 </div>
                 {employees.length === 0 && !loadingEmployees && (
                   <p className="mt-1 text-[12px] text-[#6b7280]">
-                    No active employees found. Please ensure you have proper permissions to access employee data.
+                    No active employees found. Please ensure you have proper
+                    permissions to access employee data.
                   </p>
                 )}
               </div>
@@ -961,9 +1126,13 @@ function LoeEditor() {
                   value={employeeName}
                   onChange={(e) => setEmployeeName(e.target.value)}
                   className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
-                    selectedEmployeeId && employeeName ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                    selectedEmployeeId && employeeName
+                      ? "border-[#10b981] bg-[#f0fdf4]"
+                      : "border-[#d1d5db]"
                   }`}
-                  placeholder={selectedEmployeeId ? "Auto-filled from employee data" : ""}
+                  placeholder={
+                    selectedEmployeeId ? "Auto-filled from employee data" : ""
+                  }
                 />
               </Field>
 
@@ -973,7 +1142,9 @@ function LoeEditor() {
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
                     className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
-                      selectedEmployeeId && employeeId ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                      selectedEmployeeId && employeeId
+                        ? "border-[#10b981] bg-[#f0fdf4]"
+                        : "border-[#d1d5db]"
                     }`}
                   />
                 </Field>
@@ -997,7 +1168,9 @@ function LoeEditor() {
                     value={designation}
                     onChange={(e) => setDesignation(e.target.value)}
                     className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
-                      selectedEmployeeId && designation ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                      selectedEmployeeId && designation
+                        ? "border-[#10b981] bg-[#f0fdf4]"
+                        : "border-[#d1d5db]"
                     }`}
                   />
                 </Field>
@@ -1006,7 +1179,9 @@ function LoeEditor() {
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
                     className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
-                      selectedEmployeeId && department ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                      selectedEmployeeId && department
+                        ? "border-[#10b981] bg-[#f0fdf4]"
+                        : "border-[#d1d5db]"
                     }`}
                   />
                 </Field>
@@ -1019,7 +1194,9 @@ function LoeEditor() {
                     value={dateOfJoining}
                     onChange={(e) => setDateOfJoining(e.target.value)}
                     className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
-                      selectedEmployeeId && dateOfJoining ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                      selectedEmployeeId && dateOfJoining
+                        ? "border-[#10b981] bg-[#f0fdf4]"
+                        : "border-[#d1d5db]"
                     }`}
                   />
                 </Field>
@@ -1028,7 +1205,9 @@ function LoeEditor() {
                     value={currentSalary}
                     onChange={(e) => setCurrentSalary(e.target.value)}
                     className={`w-full rounded-md border px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316] ${
-                      selectedEmployeeId && currentSalary ? 'border-[#10b981] bg-[#f0fdf4]' : 'border-[#d1d5db]'
+                      selectedEmployeeId && currentSalary
+                        ? "border-[#10b981] bg-[#f0fdf4]"
+                        : "border-[#d1d5db]"
                     }`}
                   />
                 </Field>
@@ -1039,7 +1218,8 @@ function LoeEditor() {
                   Company
                 </h3>
                 <p className="text-[12px] text-[#6b7280] mt-1">
-                  These fields are automatically filled from your company&apos;s Primary Business Address
+                  These fields are automatically filled from your company&apos;s
+                  Primary Business Address
                 </p>
               </div>
 
@@ -1090,140 +1270,6 @@ function LoeEditor() {
                   className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
                 />
               </Field>
-
-              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
-                Issuance
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Issue date">
-                  <input
-                    type="date"
-                    value={issueDate}
-                    onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                  />
-                </Field>
-              </div>
-
-              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
-                Letter Content
-              </h3>
-              
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-[14px]">
-                      <input
-                        type="radio"
-                        name="editorMode"
-                        checked={useRichEditor}
-                        onChange={() => setUseRichEditor(true)}
-                        className="text-[#f97316] focus:ring-[#f97316]"
-                      />
-                      Rich Text Editor
-                    </label>
-                    <label className="flex items-center gap-2 text-[14px]">
-                      <input
-                        type="radio"
-                        name="editorMode"
-                        checked={!useRichEditor}
-                        onChange={() => setUseRichEditor(false)}
-                        className="text-[#f97316] focus:ring-[#f97316]"
-                      />
-                      Simple Text
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowSaveDialog(true)}
-                      className="px-3 py-1 text-[12px] border border-[#d1d5db] rounded-md hover:bg-[#f9fafb] bg-white"
-                    >
-                      Save Template
-                    </button>
-                    {savedTemplates.length > 0 && (
-                      <select
-                        onChange={(e) => {
-                          const template = savedTemplates.find(t => t.id === e.target.value);
-                          if (template) loadTemplate(template);
-                        }}
-                        className="px-2 py-1 text-[12px] border border-[#d1d5db] rounded-md bg-white"
-                        defaultValue=""
-                      >
-                        <option value="">Load Template</option>
-                        {savedTemplates.map(template => (
-                          <option key={template.id} value={template.id}>
-                            {template.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-                
-                {useRichEditor ? (
-                  <RichTextEditor
-                    value={letterContent}
-                    onChange={setLetterContent}
-                    availableFields={AVAILABLE_FIELDS}
-                  />
-                ) : (
-                  <Field label="Letter Content">
-                    <textarea
-                      value={letterContent}
-                      onChange={(e) => setLetterContent(e.target.value)}
-                      rows={8}
-                      className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                      placeholder="Enter your letter content. Use {{fieldName}} for placeholders."
-                    />
-                  </Field>
-                )}
-              </div>
-
-              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
-                Contact
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <Field label="Signature (PNG)">
-                    <input
-                      type="file"
-                      accept="image/png"
-                      onChange={handleSignatureChange}
-                      className="block w-full text-[14px]"
-                    />
-                  </Field>
-                </div>
-                <Field label="HR contact name">
-                  <input
-                    value={hrName}
-                    onChange={(e) => setHrName(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                  />
-                </Field>
-                <Field label="Title">
-                  <input
-                    value={hrTitle}
-                    onChange={(e) => setHrTitle(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                  />
-                </Field>
-                <Field label="Email">
-                  <input
-                    type="email"
-                    value={hrEmail}
-                    onChange={(e) => setHrEmail(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                  />
-                </Field>
-                <Field label="Phone">
-                  <input
-                    value={hrPhone}
-                    onChange={(e) => setHrPhone(e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
-                  />
-                </Field>
-              </div>
             </div>
 
             <div className="mt-6">
@@ -1364,19 +1410,21 @@ function LoeEditor() {
                   <div className="space-y-1 text-[#111827]">
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Name</span>
-                      <span className="font-medium">{employeeName || '[Name]'}</span>
+                      <span className="font-medium">
+                        {employeeName || "[Name]"}
+                      </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Employee ID</span>
-                      <span>{employeeId || '[Employee ID]'}</span>
+                      <span>{employeeId || "[Employee ID]"}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Designation</span>
-                      <span>{designation || '[Designation]'}</span>
+                      <span>{designation || "[Designation]"}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Department</span>
-                      <span>{department || '[Department]'}</span>
+                      <span>{department || "[Department]"}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Employment</span>
@@ -1384,30 +1432,35 @@ function LoeEditor() {
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Joined</span>
-                      <span>{formatLongDate(dateOfJoining) || '[Date of Joining]'}</span>
+                      <span>
+                        {formatLongDate(dateOfJoining) || "[Date of Joining]"}
+                      </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Salary</span>
-                      <span>{currentSalary || '[Current Salary]'}</span>
+                      <span>{currentSalary || "[Current Salary]"}</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-28 text-[#6b7280]">Address</span>
                       <span>
-                        {companyAddressLine || '[Street Address]'}
+                        {companyAddressLine || "[Street Address]"}
                         <br />
-                        {companyCityLine || '[City, State, Zip]'}
+                        {companyCityLine || "[City, State, Zip]"}
                         <br />
-                        {companyCountry || '[Country]'}
+                        {companyCountry || "[Country]"}
                       </span>
                     </div>
                   </div>
 
                   <div className="my-6 h-px bg-[#e5e7eb]" />
 
-                  <div 
+                  <div
                     className="space-y-4 leading-relaxed text-[#111827] prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ 
-                      __html: processTemplateToHtml(letterContent, getCurrentEmployeeData()) 
+                    dangerouslySetInnerHTML={{
+                      __html: processTemplateToHtml(
+                        letterContent,
+                        getCurrentEmployeeData()
+                      ),
                     }}
                   />
 
@@ -1428,17 +1481,202 @@ function LoeEditor() {
                           unoptimized
                         />
                       )}
-                      <div className="text-[18px] font-semibold">{hrName || '[HR Name]'}</div>
-                      <div className="text-[12px] text-[#6b7280]">
-                        {hrTitle || '[HR Title]'}
+                      <div className="text-[18px] font-semibold">
+                        {hrName || "[HR Name]"}
                       </div>
                       <div className="text-[12px] text-[#6b7280]">
-                        {companyName || '[Company Name]'}
+                        {hrTitle || "[HR Title]"}
+                      </div>
+                      <div className="text-[12px] text-[#6b7280]">
+                        {companyName || "[Company Name]"}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 md:p-5 h-max no-print">
+            <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
+              Issuance
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Issue date">
+                <input
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                />
+              </Field>
+            </div>
+
+            <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
+              Letter Content
+            </h3>
+
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-[14px]">
+                    <input
+                      type="radio"
+                      name="editorMode"
+                      checked={useRichEditor}
+                      onChange={() => setUseRichEditor(true)}
+                      className="text-[#f97316] focus:ring-[#f97316]"
+                    />
+                    Rich Text Editor
+                  </label>
+                  <label className="flex items-center gap-2 text-[14px]">
+                    <input
+                      type="radio"
+                      name="editorMode"
+                      checked={!useRichEditor}
+                      onChange={() => setUseRichEditor(false)}
+                      className="text-[#f97316] focus:ring-[#f97316]"
+                    />
+                    Simple Text
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSaveDialog(true)}
+                    className="px-3 py-1 text-[12px] border border-[#d1d5db] rounded-md hover:bg-[#f9fafb] bg-white"
+                  >
+                    Save Template
+                  </button>
+                  {savedTemplates.length > 0 && (
+                    <select
+                      onChange={(e) => {
+                        const template = savedTemplates.find(
+                          (t) => t.id === e.target.value
+                        );
+                        if (template) loadTemplate(template);
+                      }}
+                      className="px-2 py-1 text-[12px] border border-[#d1d5db] rounded-md bg-white"
+                      defaultValue=""
+                    >
+                      <option value="">Load Template</option>
+                      {savedTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              {useRichEditor ? (
+                <RichTextEditor
+                  value={letterContent}
+                  onChange={setLetterContent}
+                  availableFields={AVAILABLE_FIELDS}
+                />
+              ) : (
+                <Field label="Letter Content">
+                  <textarea
+                    value={letterContent}
+                    onChange={(e) => setLetterContent(e.target.value)}
+                    rows={8}
+                    className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                    placeholder="Enter your letter content. Use {{fieldName}} for placeholders."
+                  />
+                </Field>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-[14px] font-medium text-[#374151]">
+                Contact
+              </h3>
+              <p className="text-[12px] text-[#6b7280] mt-1">
+                HR contact fields and signature images are automatically filled
+                from your Digital Signatures. Website is filled from Company
+                Profile.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <Field label="Signature (PNG)">
+                  <input
+                    type="file"
+                    accept="image/png"
+                    onChange={handleSignatureChange}
+                    className="block w-full text-[14px]"
+                  />
+                  {signatureDataUrl && (
+                    <div className="mt-2">
+                      <p className="text-[12px] text-[#6b7280] mb-1">
+                        Signature Preview:
+                      </p>
+                      <img
+                        src={signatureDataUrl}
+                        alt="Signature preview"
+                        className="max-w-[200px] max-h-[60px] border border-[#d1d5db] rounded"
+                      />
+                    </div>
+                  )}
+                </Field>
+              </div>
+
+              {availableSignatories.length > 1 && (
+                <div className="sm:col-span-2">
+                  <Field label="Select Signatory">
+                    <select
+                      onChange={(e) => {
+                        const selectedSignatory = availableSignatories.find(
+                          (s) => s.name === e.target.value
+                        );
+                        if (selectedSignatory) {
+                          handleSignatorySelect(selectedSignatory);
+                        }
+                      }}
+                      className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                    >
+                      <option value="">Select a signatory...</option>
+                      {availableSignatories.map((signatory, index) => (
+                        <option key={index} value={signatory.name}>
+                          {signatory.name} - {signatory.title}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              )}
+              <Field label="HR contact name">
+                <input
+                  value={hrName}
+                  onChange={(e) => setHrName(e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                />
+              </Field>
+              <Field label="Title">
+                <input
+                  value={hrTitle}
+                  onChange={(e) => setHrTitle(e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                />
+              </Field>
+              <Field label="Email">
+                <input
+                  type="email"
+                  value={hrEmail}
+                  onChange={(e) => setHrEmail(e.target.value)}
+                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                />
+              </Field>
+              <Field label="Website">
+                <input
+                  type="url"
+                  value={hrWebsite}
+                  onChange={(e) => setHrWebsite(e.target.value)}
+                  placeholder="https://www.company.com"
+                  className="w-full rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:border-[#f97316]"
+                />
+              </Field>
             </div>
           </div>
         </div>
@@ -1461,8 +1699,8 @@ function LoeEditor() {
                 placeholder="Enter template name..."
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveTemplate();
-                  if (e.key === 'Escape') setShowSaveDialog(false);
+                  if (e.key === "Enter") saveTemplate();
+                  if (e.key === "Escape") setShowSaveDialog(false);
                 }}
               />
             </div>
@@ -1490,8 +1728,11 @@ function LoeEditor() {
         <div className="fixed bottom-4 right-4 bg-white border border-[#e5e7eb] rounded-lg shadow-lg p-4 max-w-sm z-40">
           <h4 className="text-[14px] font-medium mb-2">Saved Templates</h4>
           <div className="space-y-1 max-h-32 overflow-y-auto">
-            {savedTemplates.map(template => (
-              <div key={template.id} className="flex items-center justify-between text-[12px]">
+            {savedTemplates.map((template) => (
+              <div
+                key={template.id}
+                className="flex items-center justify-between text-[12px]"
+              >
                 <button
                   onClick={() => loadTemplate(template)}
                   className="text-left hover:text-[#f97316] flex-1 truncate"

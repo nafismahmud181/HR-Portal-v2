@@ -19,7 +19,7 @@ export interface EmployeeData {
   hrName: string;
   hrTitle: string;
   hrEmail: string;
-  hrPhone: string;
+  hrWebsite: string;
 }
 
 export interface AvailableField {
@@ -131,9 +131,9 @@ export const AVAILABLE_FIELDS: AvailableField[] = [
     category: 'hr'
   },
   {
-    key: 'hrPhone',
-    label: 'HR Phone',
-    description: 'HR contact phone',
+    key: 'hrWebsite',
+    label: 'HR Website',
+    description: 'Company website',
     category: 'hr'
   },
   // System fields
@@ -161,7 +161,7 @@ export const AVAILABLE_FIELDS: AvailableField[] = [
 export const DEFAULT_LETTER_TEMPLATE = `
 This letter is to confirm that **{{employeeName}}** is employed with **{{companyName}}** as a **{{designation}}** in the **{{department}}** department since {{dateOfJoining}}. The nature of employment is {{employmentType}} and the current compensation is {{currentSalary}}.
 
-This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact {{hrName}} ({{hrTitle}}) at {{hrEmail}} or {{hrPhone}}.
+This letter is issued upon request of the employee for whatever purpose it may serve. For additional verification, please contact {{hrName}} ({{hrTitle}}) at {{hrEmail}} or visit {{hrWebsite}}.
 `;
 
 /**
