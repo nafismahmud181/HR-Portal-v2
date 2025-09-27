@@ -402,7 +402,7 @@ export function AdminSidebarLayout({ children }: { children: React.ReactNode }) 
     <SidebarProvider>
       <AppSidebar />
       <main className="flex-1">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="fixed top-0 right-0 left-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:left-64">
           <SidebarTrigger className="" />
           <Button
             variant="outline"
@@ -423,7 +423,7 @@ export function AdminSidebarLayout({ children }: { children: React.ReactNode }) 
             </kbd>
           </Button>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-20">
           {children}
         </div>
         <CommandMenu />
