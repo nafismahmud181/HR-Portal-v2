@@ -85,6 +85,7 @@ function InviteSetPasswordPageInner() {
       console.log("Creating employee profile...");
       console.log("Invite data for employee creation:", invite);
       console.log("Using employeeId from invite:", invite?.employeeId || "fallback to uid:", uid);
+      console.log("Salary from invite:", invite?.salary);
       try {
         await setDoc(doc(db, "organizations", presetOrg, "employees", uid), {
           employeeId: invite?.employeeId || uid, // Use assigned employeeId from invite, fallback to uid

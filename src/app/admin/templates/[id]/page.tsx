@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, getDoc, query, where, doc } from "firebase/firestore";
 import RichTextEditor from "@/components/RichTextEditor";
 import { 
   AVAILABLE_FIELDS, 
@@ -29,6 +29,7 @@ interface Employee {
   status: string;
   location?: string;
   compensation?: string;
+  salary?: string;
 }
 
 export default function TemplateEditorPage() {
@@ -561,7 +562,7 @@ function LoeEditor() {
     }
   }, []);
 
-  // Fetch employees from Firebase
+  // Fetch employees and company data from Firebase
   useEffect(() => {
     const fetchEmployees = async () => {
       setLoadingEmployees(true);
@@ -569,26 +570,76 @@ function LoeEditor() {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
           if (user) {
             try {
-              // Try to find the user's organization
-              let orgId = user.uid; // Default to user.uid as orgId
+              // Find organization using the same pattern as other admin pages
+              let orgId = null;
+              let companyData = null;
               
-              // First, try to find organization where user is the creator
-              const orgRef = collection(db, 'organizations');
-              const orgQuery = query(orgRef, where('createdBy', '==', user.uid));
-              const orgSnapshot = await getDocs(orgQuery);
+              // First try: find org where user is a member (most common case)
+              const cg = collectionGroup(db, "users");
+              const q = query(cg, where("uid", "==", user.uid));
+              const snap = await getDocs(q);
               
-              if (!orgSnapshot.empty) {
-                const orgDoc = orgSnapshot.docs[0];
-                orgId = orgDoc.id;
-              } else {
-                // If not found as creator, try to find organization where user is a member
-                const userOrgsQuery = query(orgRef, where('users', '==', user.uid));
-                const userOrgsSnapshot = await getDocs(userOrgsQuery);
+              if (!snap.empty) {
+                const ref = snap.docs[0].ref;
+                const parentOrg = ref.parent.parent;
+                orgId = parentOrg ? parentOrg.id : null;
                 
-                if (!userOrgsSnapshot.empty) {
-                  const userOrgDoc = userOrgsSnapshot.docs[0];
-                  orgId = userOrgDoc.id;
+                if (orgId) {
+                  // Get organization data
+                  const orgDoc = await getDoc(doc(db, 'organizations', orgId));
+                  if (orgDoc.exists()) {
+                    companyData = orgDoc.data();
+                    console.log("Company data from organization:", companyData);
+                  }
                 }
+              } else {
+                // Fallback: find org where user is the creator
+                const orgRef = collection(db, 'organizations');
+                const orgQuery = query(orgRef, where('createdBy', '==', user.uid));
+                const orgSnapshot = await getDocs(orgQuery);
+                
+                if (!orgSnapshot.empty) {
+                  const orgDoc = orgSnapshot.docs[0];
+                  orgId = orgDoc.id;
+                  companyData = orgDoc.data();
+                  console.log("Company data from created organization:", companyData);
+                }
+              }
+              
+              // Auto-populate company fields with organization data
+              if (companyData) {
+                if (companyData.name) setCompanyName(companyData.name);
+                if (companyData.adminAddress) {
+                  setCompanyStreet(companyData.adminAddress.street || '');
+                  setCompanyCity(companyData.adminAddress.city || '');
+                  setCompanyState(companyData.adminAddress.state || '');
+                  setCompanyZip(companyData.adminAddress.zip || '');
+                  setCompanyCountry(companyData.adminAddress.country || '');
+                }
+                
+                // Also try primaryOffice if adminAddress is not available
+                if (!companyData.adminAddress && companyData.primaryOffice) {
+                  setCompanyStreet(companyData.primaryOffice.address || '');
+                  setCompanyCity(companyData.primaryOffice.city || '');
+                  setCompanyState(companyData.primaryOffice.state || '');
+                  setCompanyZip(companyData.primaryOffice.zipCode || '');
+                  setCompanyCountry(companyData.primaryOffice.country || '');
+                }
+                
+                // Also try mailingAddress as fallback
+                if (!companyData.adminAddress && !companyData.primaryOffice && companyData.mailingAddress) {
+                  setCompanyStreet(companyData.mailingAddress.street || '');
+                  setCompanyCity(companyData.mailingAddress.city || '');
+                  setCompanyState(companyData.mailingAddress.state || '');
+                  setCompanyZip(companyData.mailingAddress.zip || '');
+                  setCompanyCountry(companyData.mailingAddress.country || '');
+                }
+              }
+              
+              if (!orgId) {
+                console.error('No organization found for user');
+                setEmployees([]);
+                return;
               }
               
               // Fetch employees from the organization's employees subcollection
@@ -599,6 +650,32 @@ function LoeEditor() {
               const employeesList: Employee[] = [];
               snapshot.forEach((doc) => {
                 const data = doc.data();
+                console.log("Employee data from DB:", doc.id, data);
+                console.log("Salary field:", data.salary);
+                console.log("Compensation field:", data.compensation);
+                console.log("All data fields:", Object.keys(data));
+                
+                // Handle hireDate conversion - convert Firestore timestamp to string if needed
+                let hireDateValue = '';
+                if (data.hireDate) {
+                  if (typeof data.hireDate === 'string') {
+                    hireDateValue = data.hireDate;
+                  } else if (data.hireDate.toDate && typeof data.hireDate.toDate === 'function') {
+                    // Firestore timestamp
+                    hireDateValue = data.hireDate.toDate().toISOString().slice(0, 10);
+                  } else if (data.hireDate.seconds) {
+                    // Firestore timestamp object
+                    const date = new Date(data.hireDate.seconds * 1000);
+                    hireDateValue = date.toISOString().slice(0, 10);
+                  } else {
+                    hireDateValue = data.hireDate;
+                  }
+                }
+                
+                // Try multiple possible salary field names
+                const salaryValue = data.salary || data.compensation || data.currentSalary || data.annualSalary || '';
+                console.log("Final salary value:", salaryValue);
+                
                 employeesList.push({
                   id: doc.id,
                   name: data.name || '',
@@ -606,11 +683,12 @@ function LoeEditor() {
                   email: data.email || '',
                   department: data.department || '',
                   jobTitle: data.jobTitle || '',
-                  hireDate: data.hireDate || '',
+                  hireDate: hireDateValue,
                   employeeType: data.employeeType || 'Full-time',
                   status: data.status || 'Active',
                   location: data.location || '',
-                  compensation: data.compensation || data.salary || '',
+                  compensation: data.compensation || '',
+                  salary: salaryValue,
                 });
               });
               
@@ -626,6 +704,27 @@ function LoeEditor() {
                 const employeesList: Employee[] = [];
                 snapshot.forEach((doc) => {
                   const data = doc.data();
+                  
+                  // Handle hireDate conversion - convert Firestore timestamp to string if needed
+                  let hireDateValue = '';
+                  if (data.hireDate) {
+                    if (typeof data.hireDate === 'string') {
+                      hireDateValue = data.hireDate;
+                    } else if (data.hireDate.toDate && typeof data.hireDate.toDate === 'function') {
+                      // Firestore timestamp
+                      hireDateValue = data.hireDate.toDate().toISOString().slice(0, 10);
+                    } else if (data.hireDate.seconds) {
+                      // Firestore timestamp object
+                      const date = new Date(data.hireDate.seconds * 1000);
+                      hireDateValue = date.toISOString().slice(0, 10);
+                    } else {
+                      hireDateValue = data.hireDate;
+                    }
+                  }
+                  
+                  // Try multiple possible salary field names
+                  const salaryValue = data.salary || data.compensation || data.currentSalary || data.annualSalary || '';
+                  
                   employeesList.push({
                     id: doc.id,
                     name: data.name || '',
@@ -633,11 +732,12 @@ function LoeEditor() {
                     email: data.email || '',
                     department: data.department || '',
                     jobTitle: data.jobTitle || '',
-                    hireDate: data.hireDate || '',
+                    hireDate: hireDateValue,
                     employeeType: data.employeeType || 'Full-time',
                     status: data.status || 'Active',
                     location: data.location || '',
-                    compensation: data.compensation || data.salary || '',
+                    compensation: data.compensation || '',
+                    salary: salaryValue,
                   });
                 });
                 
@@ -678,13 +778,22 @@ function LoeEditor() {
     }
     
     const selectedEmployee = employees.find(emp => emp.id === employeeId);
+    console.log("Selected employee:", selectedEmployee);
+    console.log("Employee compensation:", selectedEmployee?.compensation);
+    console.log("Employee salary:", selectedEmployee?.salary);
+    
     if (selectedEmployee) {
       setEmployeeName(selectedEmployee.name);
       setDesignation(selectedEmployee.jobTitle);
       setDepartment(selectedEmployee.department);
       setEmployeeId(selectedEmployee.employeeId);
-      setDateOfJoining(selectedEmployee.hireDate);
-      setCurrentSalary(selectedEmployee.compensation || "");
+      
+      // Set hireDate (already converted to string during fetch)
+      setDateOfJoining(selectedEmployee.hireDate || "");
+      
+      const salaryValue = selectedEmployee.compensation || selectedEmployee.salary || "";
+      console.log("Setting salary value:", salaryValue);
+      setCurrentSalary(salaryValue);
       setEmploymentType(selectedEmployee.employeeType);
     }
   };
@@ -925,9 +1034,14 @@ function LoeEditor() {
                 </Field>
               </div>
 
-              <h3 className="mt-6 text-[14px] font-medium text-[#374151]">
-                Company
-              </h3>
+              <div className="mt-6">
+                <h3 className="text-[14px] font-medium text-[#374151]">
+                  Company
+                </h3>
+                <p className="text-[12px] text-[#6b7280] mt-1">
+                  These fields are automatically filled from your company&apos;s Primary Business Address
+                </p>
+              </div>
 
               <Field label="Company name">
                 <input
