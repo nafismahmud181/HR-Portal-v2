@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collectionGroup, getDocs, query, where, doc, getDoc, setDoc } from "firebase/firestore";
+import { toast } from "sonner";
 import UserManagementSection from "./UserManagementSection";
 import SystemConfigSection from "./SystemConfigSection";
 import SecurityAuditSection from "./SecurityAuditSection";
@@ -740,17 +741,6 @@ export default function AdministrationSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("user-management");
-  const [modal, setModal] = useState<{
-    isOpen: boolean;
-    type: "success" | "error";
-    title: string;
-    data: string;
-  }>({
-    isOpen: false,
-    type: "success",
-    title: "",
-    data: ""
-  });
   const [orgId, setOrgId] = useState<string | null>(null);
   const [formData, setFormData] = useState<AdministrationSettings>({
     // Analytics & Reporting Defaults
@@ -1536,11 +1526,8 @@ export default function AdministrationSettingsPage() {
 
   const handleSave = async () => {
     if (!orgId) {
-      setModal({
-        isOpen: true,
-        type: "error",
-        title: "Error",
-        data: "Organization not found. Please refresh the page."
+      toast.error("Error", {
+        description: "Organization not found. Please refresh the page."
       });
       return;
     }
@@ -1550,28 +1537,19 @@ export default function AdministrationSettingsPage() {
       const settingsRef = doc(db, "organizations", orgId, "settings", "administration");
       await setDoc(settingsRef, formData, { merge: true });
       
-      setModal({
-        isOpen: true,
-        type: "success",
-        title: "Settings Saved",
-        data: "Administration settings have been saved successfully."
+      toast.success("Settings Saved", {
+        description: "Administration settings have been saved successfully."
       });
     } catch (error) {
       console.error("Error saving settings:", error);
-      setModal({
-        isOpen: true,
-        type: "error",
-        title: "Save Failed",
-        data: error instanceof Error ? error.message : "Failed to save settings. Please try again."
+      toast.error("Save Failed", {
+        description: error instanceof Error ? error.message : "Failed to save settings. Please try again."
       });
     } finally {
       setSaving(false);
     }
   };
 
-  const closeModal = () => {
-    setModal(prev => ({ ...prev, isOpen: false }));
-  };
 
   if (loading) {
     return (
@@ -1677,34 +1655,6 @@ export default function AdministrationSettingsPage() {
           )}
         </div>
 
-        {/* Modal */}
-        {modal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  modal.type === "success" ? "bg-green-100" : "bg-red-100"
-                }`}>
-                  <span className={`text-lg ${
-                    modal.type === "success" ? "text-green-600" : "text-red-600"
-                  }`}>
-                    {modal.type === "success" ? "✓" : "✗"}
-                  </span>
-                </div>
-                <h3 className="text-[16px] font-semibold">{modal.title}</h3>
-              </div>
-              <p className="text-[14px] text-[#6b7280] mb-6">{modal.data as string}</p>
-              <div className="flex justify-end">
-                <button
-                  onClick={closeModal}
-                  className="px-4 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#ea580c] transition-colors"
-                >
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
