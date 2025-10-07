@@ -1066,7 +1066,7 @@ export default function EmployeeOnboardingPage() {
               <h3 className="text-[16px] font-medium mb-4">Document Uploads</h3>
               <div className="space-y-4">
                 {Object.entries(fieldConfig.documents)
-                  .filter(([_, config]) => config.enabled && config.required)
+                  .filter(([, config]) => config.enabled && config.required)
                   .map(([key, config]) => (
                   <div key={key}>
                     <label className="block mb-2 text-[14px] font-medium text-[#374151]">
@@ -1103,7 +1103,7 @@ export default function EmployeeOnboardingPage() {
                           </div>
                         ) : (
                           <div className="text-[14px] text-[#6b7280]">
-                            <p>Click to upload {label.toLowerCase()}</p>
+                            <p>Click to upload {config.label.toLowerCase()}</p>
                             <p className="text-[12px] mt-1">PDF, JPG, PNG up to 10MB</p>
                           </div>
                         )}
@@ -1114,12 +1114,12 @@ export default function EmployeeOnboardingPage() {
               </div>
             </div>
 
-            {Object.entries(fieldConfig.documents).some(([_, config]) => config.enabled && !config.required) && (
+            {Object.entries(fieldConfig.documents).some(([, config]) => config.enabled && !config.required) && (
               <div>
                 <h3 className="text-[16px] font-medium mb-4">Optional Documents</h3>
                 <div className="space-y-4">
                   {Object.entries(fieldConfig.documents)
-                    .filter(([_, config]) => config.enabled && !config.required)
+                    .filter(([, config]) => config.enabled && !config.required)
                     .map(([key, config]) => (
                   <div key={key}>
                     <label className="block mb-2 text-[14px] font-medium text-[#374151]">{config.label}</label>
@@ -1154,7 +1154,7 @@ export default function EmployeeOnboardingPage() {
                           </div>
                         ) : (
                           <div className="text-[14px] text-[#6b7280]">
-                            <p>Click to upload {label.toLowerCase()}</p>
+                            <p>Click to upload {config.label.toLowerCase()}</p>
                             <p className="text-[12px] mt-1">PDF, JPG, PNG up to 10MB</p>
                           </div>
                         )}
