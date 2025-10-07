@@ -212,13 +212,36 @@ export default function EmployeeOnboardingPage() {
     }
   });
 
-  const steps = [
+  // Helper function to check if a step has any enabled fields
+  const isStepEnabled = (stepNumber: number): boolean => {
+    if (!fieldConfig) return false;
+    
+    switch (stepNumber) {
+      case 1:
+        return Object.values(fieldConfig.personalInformation).some(field => field.enabled);
+      case 2:
+        return Object.values(fieldConfig.addressInformation).some(field => field.enabled);
+      case 3:
+        return Object.values(fieldConfig.emergencyContacts).some(field => field.enabled);
+      case 4:
+        return Object.values(fieldConfig.bankingTaxInfo).some(field => field.enabled);
+      case 5:
+        return Object.values(fieldConfig.documents).some(field => field.enabled);
+      default:
+        return false;
+    }
+  };
+
+  // Get only enabled steps
+  const enabledSteps = [
     { id: 1, title: "Personal Information", description: "Complete your personal details" },
     { id: 2, title: "Address Information", description: "Provide your address details" },
     { id: 3, title: "Emergency Contacts", description: "Add emergency contact information" },
     { id: 4, title: "Banking & Tax", description: "Set up payroll information" },
     { id: 5, title: "Document Upload", description: "Upload required documents" }
-  ];
+  ].filter(step => isStepEnabled(step.id));
+
+  const steps = enabledSteps;
 
   const handleFileUpload = async (field: keyof OnboardingData['documents'] | 'profilePhoto', file: File) => {
     if (!orgId || !employeeId) {
@@ -293,10 +316,12 @@ export default function EmployeeOnboardingPage() {
     }
   };
 
-  const validateStep = (step: number): boolean => {
-    if (!fieldConfig) return false;
+  const validateStep = (stepIndex: number): boolean => {
+    if (!fieldConfig || !steps[stepIndex]) return false;
     
-    switch (step) {
+    const stepNumber = steps[stepIndex].id;
+    
+    switch (stepNumber) {
       case 1:
         const personalRequired = fieldConfig.personalInformation;
         return !!(personalRequired.personalEmail.enabled && personalRequired.personalEmail.required ? formData.personalEmail : true) &&
@@ -329,13 +354,13 @@ export default function EmployeeOnboardingPage() {
   };
 
   const nextStep = () => {
-    if (validateStep(currentStep) && currentStep < 5) {
+    if (validateStep(currentStep) && currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) {
+    if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };
@@ -404,7 +429,7 @@ export default function EmployeeOnboardingPage() {
   }, [router]);
 
   const handleSubmit = async () => {
-    if (!validateStep(5) || !orgId || !employeeId) {
+    if (!validateStep(steps.length - 1) || !orgId || !employeeId) {
       setError("Please complete all required fields and upload required documents.");
       return;
     }
@@ -432,7 +457,12 @@ export default function EmployeeOnboardingPage() {
       return <div className="text-center py-8">Loading configuration...</div>;
     }
 
-    switch (currentStep) {
+    const currentStepData = steps[currentStep];
+    if (!currentStepData) {
+      return <div className="text-center py-8">Step not found...</div>;
+    }
+
+    switch (currentStepData.id) {
       case 1:
         return (
           <div className="space-y-6">
@@ -583,113 +613,49 @@ export default function EmployeeOnboardingPage() {
       case 2:
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-[16px] font-medium mb-4">Current Address</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Street Address<span className="text-[#ef4444]"> *</span></label>
-                  <input
-                    type="text"
-                    value={formData.currentAddress.street}
-                    onChange={(e) => handleInputChange("currentAddress.street", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    placeholder="123 Main Street"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">City<span className="text-[#ef4444]"> *</span></label>
-                    <input
-                      type="text"
-                      value={formData.currentAddress.city}
-                      onChange={(e) => handleInputChange("currentAddress.city", e.target.value)}
-                      className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="New York"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">State<span className="text-[#ef4444]"> *</span></label>
-                    <input
-                      type="text"
-                      value={formData.currentAddress.state}
-                      onChange={(e) => handleInputChange("currentAddress.state", e.target.value)}
-                      className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="NY"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">ZIP/Postal Code<span className="text-[#ef4444]"> *</span></label>
-                    <input
-                      type="text"
-                      value={formData.currentAddress.zipCode}
-                      onChange={(e) => handleInputChange("currentAddress.zipCode", e.target.value)}
-                      className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="10001"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Country<span className="text-[#ef4444]"> *</span></label>
-                    <input
-                      type="text"
-                      value={formData.currentAddress.country}
-                      onChange={(e) => handleInputChange("currentAddress.country", e.target.value)}
-                      className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="United States"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-[16px] font-medium mb-4">Permanent Address</h3>
-              <div className="mb-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.sameAsCurrent}
-                    onChange={(e) => {
-                      handleInputChange("sameAsCurrent", e.target.checked);
-                      if (e.target.checked) {
-                        handleInputChange("permanentAddress", formData.currentAddress);
-                      }
-                    }}
-                    className="rounded border-[#d1d5db] text-[#f97316] focus:ring-[#f97316]"
-                  />
-                  <span className="text-[14px]">Same as current address</span>
-                </label>
-              </div>
-              {!formData.sameAsCurrent && (
+            {fieldConfig.addressInformation.currentAddress.enabled && (
+              <div>
+                <h3 className="text-[16px] font-medium mb-4">
+                  {fieldConfig.addressInformation.currentAddress.label}
+                  {fieldConfig.addressInformation.currentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Street Address</label>
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                      Street Address
+                      {fieldConfig.addressInformation.currentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                    </label>
                     <input
                       type="text"
-                      value={formData.permanentAddress.street}
-                      onChange={(e) => handleInputChange("permanentAddress.street", e.target.value)}
+                      value={formData.currentAddress.street}
+                      onChange={(e) => handleInputChange("currentAddress.street", e.target.value)}
                       className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
                       placeholder="123 Main Street"
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">City</label>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        City
+                        {fieldConfig.addressInformation.currentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
                       <input
                         type="text"
-                        value={formData.permanentAddress.city}
-                        onChange={(e) => handleInputChange("permanentAddress.city", e.target.value)}
+                        value={formData.currentAddress.city}
+                        onChange={(e) => handleInputChange("currentAddress.city", e.target.value)}
                         className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
                         placeholder="New York"
                       />
                     </div>
                     <div>
-                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">State</label>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        State
+                        {fieldConfig.addressInformation.currentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
                       <input
                         type="text"
-                        value={formData.permanentAddress.state}
-                        onChange={(e) => handleInputChange("permanentAddress.state", e.target.value)}
+                        value={formData.currentAddress.state}
+                        onChange={(e) => handleInputChange("currentAddress.state", e.target.value)}
                         className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
                         placeholder="NY"
                       />
@@ -697,240 +663,399 @@ export default function EmployeeOnboardingPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">ZIP/Postal Code</label>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        ZIP/Postal Code
+                        {fieldConfig.addressInformation.currentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
                       <input
                         type="text"
-                        value={formData.permanentAddress.zipCode}
-                        onChange={(e) => handleInputChange("permanentAddress.zipCode", e.target.value)}
+                        value={formData.currentAddress.zipCode}
+                        onChange={(e) => handleInputChange("currentAddress.zipCode", e.target.value)}
                         className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
                         placeholder="10001"
                       />
                     </div>
                     <div>
-                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">Country</label>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Country
+                        {fieldConfig.addressInformation.currentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
                       <input
                         type="text"
-                        value={formData.permanentAddress.country}
-                        onChange={(e) => handleInputChange("permanentAddress.country", e.target.value)}
+                        value={formData.currentAddress.country}
+                        onChange={(e) => handleInputChange("currentAddress.country", e.target.value)}
                         className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
                         placeholder="United States"
                       />
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {fieldConfig.addressInformation.permanentAddress.enabled && (
+              <div>
+                <h3 className="text-[16px] font-medium mb-4">
+                  {fieldConfig.addressInformation.permanentAddress.label}
+                  {fieldConfig.addressInformation.permanentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                </h3>
+                {fieldConfig.addressInformation.sameAsCurrent.enabled && (
+                  <div className="mb-4">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.sameAsCurrent}
+                        onChange={(e) => {
+                          handleInputChange("sameAsCurrent", e.target.checked);
+                          if (e.target.checked) {
+                            handleInputChange("permanentAddress", formData.currentAddress);
+                          }
+                        }}
+                        className="rounded border-[#d1d5db] text-[#f97316] focus:ring-[#f97316]"
+                      />
+                      <span className="text-[14px]">{fieldConfig.addressInformation.sameAsCurrent.label}</span>
+                    </label>
+                  </div>
+                )}
+                {!formData.sameAsCurrent && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Street Address
+                        {fieldConfig.addressInformation.permanentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.permanentAddress.street}
+                        onChange={(e) => handleInputChange("permanentAddress.street", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                        placeholder="123 Main Street"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                          City
+                          {fieldConfig.addressInformation.permanentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.permanentAddress.city}
+                          onChange={(e) => handleInputChange("permanentAddress.city", e.target.value)}
+                          className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                          placeholder="New York"
+                        />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                          State
+                          {fieldConfig.addressInformation.permanentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.permanentAddress.state}
+                          onChange={(e) => handleInputChange("permanentAddress.state", e.target.value)}
+                          className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                          placeholder="NY"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                          ZIP/Postal Code
+                          {fieldConfig.addressInformation.permanentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.permanentAddress.zipCode}
+                          onChange={(e) => handleInputChange("permanentAddress.zipCode", e.target.value)}
+                          className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                          placeholder="10001"
+                        />
+                      </div>
+                      <div>
+                        <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                          Country
+                          {fieldConfig.addressInformation.permanentAddress.required && <span className="text-[#ef4444]"> *</span>}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.permanentAddress.country}
+                          onChange={(e) => handleInputChange("permanentAddress.country", e.target.value)}
+                          className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                          placeholder="United States"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
 
       case 3:
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-[16px] font-medium mb-4">Primary Emergency Contact</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Full Name<span className="text-[#ef4444]"> *</span></label>
-                  <input
-                    type="text"
-                    value={formData.primaryEmergencyContact.name}
-                    onChange={(e) => handleInputChange("primaryEmergencyContact.name", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    placeholder="John Doe"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fieldConfig.emergencyContacts.primaryEmergencyContact.enabled && (
+              <div>
+                <h3 className="text-[16px] font-medium mb-4">
+                  {fieldConfig.emergencyContacts.primaryEmergencyContact.label}
+                  {fieldConfig.emergencyContacts.primaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                </h3>
+                <div className="space-y-4">
                   <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Relationship<span className="text-[#ef4444]"> *</span></label>
-                    <select
-                      value={formData.primaryEmergencyContact.relationship}
-                      onChange={(e) => handleInputChange("primaryEmergencyContact.relationship", e.target.value)}
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                      Full Name
+                      {fieldConfig.emergencyContacts.primaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.primaryEmergencyContact.name}
+                      onChange={(e) => handleInputChange("primaryEmergencyContact.name", e.target.value)}
                       className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    >
-                      <option value="">Select Relationship</option>
-                      <option value="spouse">Spouse</option>
-                      <option value="parent">Parent</option>
-                      <option value="sibling">Sibling</option>
-                      <option value="child">Child</option>
-                      <option value="friend">Friend</option>
-                      <option value="other">Other</option>
-                    </select>
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Relationship
+                        {fieldConfig.emergencyContacts.primaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
+                      <select
+                        value={formData.primaryEmergencyContact.relationship}
+                        onChange={(e) => handleInputChange("primaryEmergencyContact.relationship", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                      >
+                        <option value="">Select Relationship</option>
+                        <option value="spouse">Spouse</option>
+                        <option value="parent">Parent</option>
+                        <option value="sibling">Sibling</option>
+                        <option value="child">Child</option>
+                        <option value="friend">Friend</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Phone Number
+                        {fieldConfig.emergencyContacts.primaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.primaryEmergencyContact.phone}
+                        onChange={(e) => handleInputChange("primaryEmergencyContact.phone", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                        placeholder="+1 (555) 123-4567"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Phone Number<span className="text-[#ef4444]"> *</span></label>
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Email (Optional)</label>
                     <input
-                      type="tel"
-                      value={formData.primaryEmergencyContact.phone}
-                      onChange={(e) => handleInputChange("primaryEmergencyContact.phone", e.target.value)}
+                      type="email"
+                      value={formData.primaryEmergencyContact.email}
+                      onChange={(e) => handleInputChange("primaryEmergencyContact.email", e.target.value)}
                       className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="john.doe@example.com"
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Email (Optional)</label>
-                  <input
-                    type="email"
-                    value={formData.primaryEmergencyContact.email}
-                    onChange={(e) => handleInputChange("primaryEmergencyContact.email", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    placeholder="john.doe@example.com"
-                  />
-                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <h3 className="text-[16px] font-medium mb-4">Secondary Emergency Contact (Optional)</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Full Name</label>
-                  <input
-                    type="text"
-                    value={formData.secondaryEmergencyContact.name}
-                    onChange={(e) => handleInputChange("secondaryEmergencyContact.name", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    placeholder="Jane Doe"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fieldConfig.emergencyContacts.secondaryEmergencyContact.enabled && (
+              <div>
+                <h3 className="text-[16px] font-medium mb-4">
+                  {fieldConfig.emergencyContacts.secondaryEmergencyContact.label}
+                  {fieldConfig.emergencyContacts.secondaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                </h3>
+                <div className="space-y-4">
                   <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Relationship</label>
-                    <select
-                      value={formData.secondaryEmergencyContact.relationship}
-                      onChange={(e) => handleInputChange("secondaryEmergencyContact.relationship", e.target.value)}
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                      Full Name
+                      {fieldConfig.emergencyContacts.secondaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.secondaryEmergencyContact.name}
+                      onChange={(e) => handleInputChange("secondaryEmergencyContact.name", e.target.value)}
                       className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    >
-                      <option value="">Select Relationship</option>
-                      <option value="spouse">Spouse</option>
-                      <option value="parent">Parent</option>
-                      <option value="sibling">Sibling</option>
-                      <option value="child">Child</option>
-                      <option value="friend">Friend</option>
-                      <option value="other">Other</option>
-                    </select>
+                      placeholder="Jane Doe"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Relationship
+                        {fieldConfig.emergencyContacts.secondaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
+                      <select
+                        value={formData.secondaryEmergencyContact.relationship}
+                        onChange={(e) => handleInputChange("secondaryEmergencyContact.relationship", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                      >
+                        <option value="">Select Relationship</option>
+                        <option value="spouse">Spouse</option>
+                        <option value="parent">Parent</option>
+                        <option value="sibling">Sibling</option>
+                        <option value="child">Child</option>
+                        <option value="friend">Friend</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Phone Number
+                        {fieldConfig.emergencyContacts.secondaryEmergencyContact.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.secondaryEmergencyContact.phone}
+                        onChange={(e) => handleInputChange("secondaryEmergencyContact.phone", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                        placeholder="+1 (555) 123-4567"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Phone Number</label>
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Email (Optional)</label>
                     <input
-                      type="tel"
-                      value={formData.secondaryEmergencyContact.phone}
-                      onChange={(e) => handleInputChange("secondaryEmergencyContact.phone", e.target.value)}
+                      type="email"
+                      value={formData.secondaryEmergencyContact.email}
+                      onChange={(e) => handleInputChange("secondaryEmergencyContact.email", e.target.value)}
                       className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="jane.doe@example.com"
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Email (Optional)</label>
-                  <input
-                    type="email"
-                    value={formData.secondaryEmergencyContact.email}
-                    onChange={(e) => handleInputChange("secondaryEmergencyContact.email", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    placeholder="jane.doe@example.com"
-                  />
-                </div>
               </div>
-            </div>
+            )}
           </div>
         );
 
       case 4:
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-[16px] font-medium mb-4">Bank Details</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Bank Name<span className="text-[#ef4444]"> *</span></label>
-                  <input
-                    type="text"
-                    value={formData.bankDetails.bankName}
-                    onChange={(e) => handleInputChange("bankDetails.bankName", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    placeholder="Chase Bank"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fieldConfig.bankingTaxInfo.bankDetails.enabled && (
+              <div>
+                <h3 className="text-[16px] font-medium mb-4">
+                  {fieldConfig.bankingTaxInfo.bankDetails.label}
+                  {fieldConfig.bankingTaxInfo.bankDetails.required && <span className="text-[#ef4444]"> *</span>}
+                </h3>
+                <div className="space-y-4">
                   <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Account Number<span className="text-[#ef4444]"> *</span></label>
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                      Bank Name
+                      {fieldConfig.bankingTaxInfo.bankDetails.required && <span className="text-[#ef4444]"> *</span>}
+                    </label>
                     <input
                       type="text"
-                      value={formData.bankDetails.accountNumber}
-                      onChange={(e) => handleInputChange("bankDetails.accountNumber", e.target.value)}
+                      value={formData.bankDetails.bankName}
+                      onChange={(e) => handleInputChange("bankDetails.bankName", e.target.value)}
                       className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="1234567890"
+                      placeholder="Chase Bank"
                     />
                   </div>
-                  <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Routing Number<span className="text-[#ef4444]"> *</span></label>
-                    <input
-                      type="text"
-                      value={formData.bankDetails.routingNumber}
-                      onChange={(e) => handleInputChange("bankDetails.routingNumber", e.target.value)}
-                      className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="021000021"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Account Number
+                        {fieldConfig.bankingTaxInfo.bankDetails.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.bankDetails.accountNumber}
+                        onChange={(e) => handleInputChange("bankDetails.accountNumber", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                        placeholder="1234567890"
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                        Routing Number
+                        {fieldConfig.bankingTaxInfo.bankDetails.required && <span className="text-[#ef4444]"> *</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.bankDetails.routingNumber}
+                        onChange={(e) => handleInputChange("bankDetails.routingNumber", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                        placeholder="021000021"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Account Type<span className="text-[#ef4444]"> *</span></label>
-                  <select
-                    value={formData.bankDetails.accountType}
-                    onChange={(e) => handleInputChange("bankDetails.accountType", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                  >
-                    <option value="">Select Account Type</option>
-                    <option value="checking">Checking</option>
-                    <option value="savings">Savings</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-[16px] font-medium mb-4">Tax Information</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-[14px] font-medium text-[#374151]">Social Security Number / Tax ID<span className="text-[#ef4444]"> *</span></label>
-                  <input
-                    type="text"
-                    value={formData.taxInformation.ssn}
-                    onChange={(e) => handleInputChange("taxInformation.ssn", e.target.value)}
-                    className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                    placeholder="XXX-XX-XXXX"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Tax Filing Status</label>
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                      Account Type
+                      {fieldConfig.bankingTaxInfo.bankDetails.required && <span className="text-[#ef4444]"> *</span>}
+                    </label>
                     <select
-                      value={formData.taxInformation.taxFilingStatus}
-                      onChange={(e) => handleInputChange("taxInformation.taxFilingStatus", e.target.value)}
+                      value={formData.bankDetails.accountType}
+                      onChange={(e) => handleInputChange("bankDetails.accountType", e.target.value)}
                       className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
                     >
-                      <option value="">Select Status</option>
-                      <option value="single">Single</option>
-                      <option value="married-filing-jointly">Married Filing Jointly</option>
-                      <option value="married-filing-separately">Married Filing Separately</option>
-                      <option value="head-of-household">Head of Household</option>
+                      <option value="">Select Account Type</option>
+                      <option value="checking">Checking</option>
+                      <option value="savings">Savings</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">Number of Allowances</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.taxInformation.allowances}
-                      onChange={(e) => handleInputChange("taxInformation.allowances", parseInt(e.target.value))}
-                      className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
-                      placeholder="0"
-                    />
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {fieldConfig.bankingTaxInfo.taxInformation.enabled && (
+              <div>
+                <h3 className="text-[16px] font-medium mb-4">
+                  {fieldConfig.bankingTaxInfo.taxInformation.label}
+                  {fieldConfig.bankingTaxInfo.taxInformation.required && <span className="text-[#ef4444]"> *</span>}
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">
+                      Social Security Number / Tax ID
+                      {fieldConfig.bankingTaxInfo.taxInformation.required && <span className="text-[#ef4444]"> *</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.taxInformation.ssn}
+                      onChange={(e) => handleInputChange("taxInformation.ssn", e.target.value)}
+                      className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                      placeholder="XXX-XX-XXXX"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">Tax Filing Status</label>
+                      <select
+                        value={formData.taxInformation.taxFilingStatus}
+                        onChange={(e) => handleInputChange("taxInformation.taxFilingStatus", e.target.value)}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="single">Single</option>
+                        <option value="married-filing-jointly">Married Filing Jointly</option>
+                        <option value="married-filing-separately">Married Filing Separately</option>
+                        <option value="head-of-household">Head of Household</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-2 text-[14px] font-medium text-[#374151]">Number of Allowances</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.taxInformation.allowances}
+                        onChange={(e) => handleInputChange("taxInformation.allowances", parseInt(e.target.value))}
+                        className="w-full rounded-md border border-[#d1d5db] px-4 py-3 text-[16px] focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -938,17 +1063,14 @@ export default function EmployeeOnboardingPage() {
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-[16px] font-medium mb-4">Required Documents</h3>
+              <h3 className="text-[16px] font-medium mb-4">Document Uploads</h3>
               <div className="space-y-4">
-                {[
-                  { key: 'governmentId', label: 'Government ID (Driver\'s License, Passport)', required: true },
-                  { key: 'socialSecurityCard', label: 'Social Security Card', required: true },
-                  { key: 'i9Documents', label: 'I-9 Verification Documents', required: true },
-                  { key: 'directDepositForm', label: 'Direct Deposit Form', required: true }
-                ].map(({ key, label, required }) => (
+                {Object.entries(fieldConfig.documents)
+                  .filter(([_, config]) => config.enabled && config.required)
+                  .map(([key, config]) => (
                   <div key={key}>
                     <label className="block mb-2 text-[14px] font-medium text-[#374151]">
-                      {label}{required && <span className="text-[#ef4444]"> *</span>}
+                      {config.label}{config.required && <span className="text-[#ef4444]"> *</span>}
                     </label>
                     <div className="border-2 border-dashed border-[#d1d5db] rounded-lg p-4">
                       <input
@@ -992,16 +1114,15 @@ export default function EmployeeOnboardingPage() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-[16px] font-medium mb-4">Optional Documents</h3>
-              <div className="space-y-4">
-                {[
-                  { key: 'resume', label: 'Resume/CV' },
-                  { key: 'certifications', label: 'Certifications' },
-                  { key: 'transcripts', label: 'Education Transcripts' }
-                ].map(({ key, label }) => (
+            {Object.entries(fieldConfig.documents).some(([_, config]) => config.enabled && !config.required) && (
+              <div>
+                <h3 className="text-[16px] font-medium mb-4">Optional Documents</h3>
+                <div className="space-y-4">
+                  {Object.entries(fieldConfig.documents)
+                    .filter(([_, config]) => config.enabled && !config.required)
+                    .map(([key, config]) => (
                   <div key={key}>
-                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">{label}</label>
+                    <label className="block mb-2 text-[14px] font-medium text-[#374151]">{config.label}</label>
                     <div className="border-2 border-dashed border-[#d1d5db] rounded-lg p-4">
                       <input
                         type="file"
@@ -1040,9 +1161,10 @@ export default function EmployeeOnboardingPage() {
                       </label>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
         );
 
@@ -1062,80 +1184,125 @@ export default function EmployeeOnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen px-6 py-16 bg-[#ffffff] text-[#1a1a1a]">
-      <div className="max-w-[720px] mx-auto">
-        <h1 className="text-[24px] font-semibold">Complete Your Profile</h1>
-        <p className="mt-2 text-[14px] text-[#6b7280]">Please provide the following information to access your portal.</p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
+          <p className="text-lg text-gray-600">Please provide the following information to access your portal</p>
+        </div>
 
         {/* Progress Steps */}
         <div className="mt-8 mb-8">
-          <div className="flex items-center justify-between">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-medium ${
-                  currentStep >= step.id 
-                    ? 'bg-[#f97316] text-white' 
-                    : 'bg-[#e5e7eb] text-[#6b7280]'
-                }`}>
-                  {currentStep > step.id ? '✓' : step.id}
+          <div className="flex items-center justify-center">
+            <div className="flex items-center">
+              {steps.map((step, index) => (
+                <div key={step.id} className="flex items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[14px] font-semibold transition-all duration-200 ${
+                    currentStep === index
+                      ? 'bg-[#f97316] text-white shadow-lg' 
+                      : currentStep > index
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {currentStep > index ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      index + 1
+                    )}
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className={`w-12 h-1 mx-3 transition-all duration-200 ${
+                      currentStep > index ? 'bg-green-500' : currentStep === index ? 'bg-[#f97316]' : 'bg-gray-200'
+                    }`} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-16 h-1 mx-2 ${
-                    currentStep > step.id ? 'bg-[#f97316]' : 'bg-[#e5e7eb]'
-                  }`} />
-                )}
+          <div className="mt-6 text-center">
+            <h2 className="text-[20px] font-semibold text-gray-900">{steps[currentStep]?.title}</h2>
+            <p className="text-[15px] text-gray-600 mt-1">{steps[currentStep]?.description}</p>
+            <div className="mt-2 text-sm text-gray-500">
+              Step {currentStep + 1} of {steps.length}
+            </div>
           </div>
-            ))}
-          </div>
-          <div className="mt-4">
-            <h2 className="text-[18px] font-medium">{steps[currentStep - 1].title}</h2>
-            <p className="text-[14px] text-[#6b7280]">{steps[currentStep - 1].description}</p>
-          </div>
-          </div>
+        </div>
 
         {/* Form Content */}
-        <div className="bg-white border border-[#e5e7eb] rounded-lg p-6">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8">
           {renderStep()}
-          </div>
+        </div>
 
         {/* Error Message */}
         {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-[14px] text-red-600">{error}</p>
+          <div className="mt-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Navigation Buttons */}
-        <div className="mt-8 flex justify-between">
+        <div className="mt-8 flex justify-between items-center">
           <button
             type="button"
             onClick={prevStep}
-            disabled={currentStep === 1}
-            className="px-6 py-3 border border-[#d1d5db] rounded-md text-[16px] font-medium hover:bg-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={currentStep === 0}
+            className="px-8 py-3 border border-gray-300 rounded-lg text-base font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
+            <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
             Previous
           </button>
           
-          {currentStep < 5 ? (
+          {currentStep < steps.length - 1 ? (
             <button
               type="button"
               onClick={nextStep}
               disabled={!validateStep(currentStep)}
-              className="px-6 py-3 bg-[#f97316] text-white rounded-md text-[16px] font-medium hover:bg-[#ea580c] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-8 py-3 bg-[#f97316] text-white rounded-lg text-base font-medium hover:bg-[#ea580c] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
             >
               Next
+              <svg className="w-4 h-4 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={saving || !validateStep(5)}
-              className="px-6 py-3 bg-[#1f2937] text-white rounded-md text-[16px] font-medium hover:bg-[#111827] disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={saving || !validateStep(steps.length - 1)}
+              className="px-8 py-3 bg-green-600 text-white rounded-lg text-base font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
             >
-{saving ? "Saving..." : "Review & Submit"}
+              {saving ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Complete Setup
+                  <svg className="w-4 h-4 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </>
+              )}
             </button>
           )}
-          </div>
+        </div>
       </div>
     </div>
   );
