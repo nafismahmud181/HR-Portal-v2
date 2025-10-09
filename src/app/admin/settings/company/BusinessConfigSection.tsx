@@ -63,6 +63,13 @@ export default function BusinessConfigSection({ formData, onNestedInputChange }:
     }
   };
 
+  const handleCompanyHolidayKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCompanyHoliday();
+    }
+  };
+
   const removeCompanyHoliday = (index: number) => {
     const updatedHolidays = formData.holidays.company.filter((_: string, i: number) => i !== index);
     onNestedInputChange("holidays", "company", updatedHolidays);
@@ -73,6 +80,13 @@ export default function BusinessConfigSection({ formData, onNestedInputChange }:
       const updatedRestrictions = [...formData.remoteWorkPolicy.geographicRestrictions, newGeographicRestriction.trim()];
       onNestedInputChange("remoteWorkPolicy", "geographicRestrictions", updatedRestrictions);
       setNewGeographicRestriction("");
+    }
+  };
+
+  const handleGeographicRestrictionKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addGeographicRestriction();
     }
   };
 
@@ -198,6 +212,7 @@ export default function BusinessConfigSection({ formData, onNestedInputChange }:
                   type="text"
                   value={newCompanyHoliday}
                   onChange={(e) => setNewCompanyHoliday(e.target.value)}
+                  onKeyPress={handleCompanyHolidayKeyPress}
                   placeholder="Add company holiday"
                   className="flex-1 rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                 />
@@ -307,6 +322,7 @@ export default function BusinessConfigSection({ formData, onNestedInputChange }:
                   type="text"
                   value={newGeographicRestriction}
                   onChange={(e) => setNewGeographicRestriction(e.target.value)}
+                  onKeyPress={handleGeographicRestrictionKeyPress}
                   placeholder="Add geographic restriction"
                   className="flex-1 rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                 />
