@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { toast } from "sonner";
 import CompanyProfileSection from "./CompanyProfileSection";
 import BusinessConfigSection from "./BusinessConfigSection";
 import OfficeLocationsSection from "./OfficeLocationsSection";
@@ -214,17 +215,6 @@ export default function CompanySettingsPage() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
-  const [modal, setModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    type: "success" | "error" | "warning" | "info";
-  }>({
-    isOpen: false,
-    title: "",
-    message: "",
-    type: "info"
-  });
 
   const [formData, setFormData] = useState<CompanySettings>({
     companyName: "",
@@ -585,18 +575,6 @@ export default function CompanySettingsPage() {
     }
   };
 
-  const showModal = (title: string, message: string, type: "success" | "error" | "warning" | "info" = "info") => {
-    setModal({
-      isOpen: true,
-      title,
-      message,
-      type
-    });
-  };
-
-  const closeModal = () => {
-    setModal(prev => ({ ...prev, isOpen: false }));
-  };
 
   const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({
@@ -619,7 +597,9 @@ export default function CompanySettingsPage() {
     setSyncing(true);
     try {
       if (!user) {
-        showModal("Error", "User not authenticated. Please log in again.", "error");
+        toast.error("Error", {
+          description: "User not authenticated. Please log in again."
+        });
         return;
       }
 
@@ -642,7 +622,9 @@ export default function CompanySettingsPage() {
       }
 
       if (querySnapshot.empty) {
-        showModal("Error", "Organization not found. Please contact support.", "error");
+        toast.error("Error", {
+          description: "Organization not found. Please contact support."
+        });
         return;
       }
 
@@ -654,7 +636,9 @@ export default function CompanySettingsPage() {
       console.log("Employee ID status:", status);
 
       if (status.status === 'healthy') {
-        showModal("Success", "All employee IDs are already synchronized! No mismatches found.", "success");
+        toast.success("Success", {
+          description: "All employee IDs are already synchronized! No mismatches found."
+        });
         return;
       }
 
@@ -662,14 +646,20 @@ export default function CompanySettingsPage() {
       const result = await syncEmployeeIds(orgId);
       
       if (result.errors.length > 0) {
-        showModal("Warning", `Fixed ${result.fixed} employee IDs, but encountered errors: ${result.errors.join(', ')}`, "warning");
+        toast.warning("Warning", {
+          description: `Fixed ${result.fixed} employee IDs, but encountered errors: ${result.errors.join(', ')}`
+        });
       } else {
-        showModal("Success", `Successfully synchronized ${result.fixed} employee IDs!`, "success");
+        toast.success("Success", {
+          description: `Successfully synchronized ${result.fixed} employee IDs!`
+        });
       }
 
     } catch (error) {
       console.error("Error syncing employee IDs:", error);
-      showModal("Error", `Failed to sync employee IDs: ${error instanceof Error ? error.message : 'Unknown error'}`, "error");
+      toast.error("Error", {
+        description: `Failed to sync employee IDs: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     } finally {
       setSyncing(false);
     }
@@ -679,7 +669,9 @@ export default function CompanySettingsPage() {
     setSaving(true);
     try {
       if (!user) {
-        showModal("Error", "User not authenticated. Please log in again.", "error");
+        toast.error("Error", {
+          description: "User not authenticated. Please log in again."
+        });
         return;
       }
 
@@ -711,7 +703,9 @@ export default function CompanySettingsPage() {
       }
       
       if (querySnapshot.empty) {
-        showModal("Error", "Organization not found. Please contact support.", "error");
+        toast.error("Error", {
+          description: "Organization not found. Please contact support."
+        });
         return;
       }
 
@@ -793,11 +787,15 @@ export default function CompanySettingsPage() {
       
       await setDoc(orgRef, updateData, { merge: true });
       
-      showModal("Success", "Company settings saved successfully!", "success");
+      toast.success("Settings Saved", {
+        description: "Company settings saved successfully!"
+      });
       console.log("Company settings saved successfully");
     } catch (error) {
       console.error("Error saving company settings:", error);
-      showModal("Error", `Failed to save company settings: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, "error");
+      toast.error("Save Failed", {
+        description: error instanceof Error ? error.message : "Failed to save company settings. Please try again."
+      });
     } finally {
       setSaving(false);
     }
@@ -881,43 +879,6 @@ export default function CompanySettingsPage() {
           {activeTab === "documents" && <DocumentCommSection formData={formData} onInputChange={handleInputChange} onNestedInputChange={handleNestedInputChange} />}
           {activeTab === "compliance" && <ComplianceLegalSection formData={formData} onInputChange={handleInputChange} onNestedInputChange={handleNestedInputChange} />}
         </div>
-
-        {/* Modal */}
-        {modal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  modal.type === "success" ? "bg-green-100" :
-                  modal.type === "error" ? "bg-red-100" :
-                  modal.type === "warning" ? "bg-yellow-100" :
-                  "bg-blue-100"
-                }`}>
-                  <span className={`text-sm ${
-                    modal.type === "success" ? "text-green-600" :
-                    modal.type === "error" ? "text-red-600" :
-                    modal.type === "warning" ? "text-yellow-600" :
-                    "text-blue-600"
-                  }`}>
-                    {modal.type === "success" ? "✓" :
-                     modal.type === "error" ? "✕" :
-                     modal.type === "warning" ? "⚠" : "ℹ"}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold">{modal.title}</h3>
-              </div>
-              <p className="text-[#6b7280] mb-6 whitespace-pre-line">{modal.message}</p>
-              <div className="flex justify-end">
-                <button
-                  onClick={closeModal}
-                  className="px-4 py-2 bg-[#f97316] text-white rounded-md text-[14px] font-medium hover:bg-[#ea580c]"
-                >
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
