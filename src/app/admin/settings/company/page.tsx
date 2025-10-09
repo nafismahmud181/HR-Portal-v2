@@ -11,7 +11,6 @@ import OfficeLocationsSection from "./OfficeLocationsSection";
 import OrgStructureSection from "./OrgStructureSection";
 import DocumentCommSection from "./DocumentCommSection";
 import ComplianceLegalSection from "./ComplianceLegalSection";
-import { syncEmployeeIds, getEmployeeIdStatus } from "@/lib/employee-id-sync";
 
 interface CompanySettings {
   // Company Profile
@@ -213,7 +212,6 @@ export default function CompanySettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
 
   const [formData, setFormData] = useState<CompanySettings>({
@@ -593,78 +591,6 @@ export default function CompanySettingsPage() {
     }));
   };
 
-  const handleSyncEmployeeIds = async () => {
-    setSyncing(true);
-    try {
-      if (!user) {
-        toast.error("Error", {
-          description: "User not authenticated. Please log in again."
-        });
-        return;
-      }
-
-      // Find the organization
-      const orgsRef = collection(db, "organizations");
-      const q = query(orgsRef, where("createdBy", "==", user.uid));
-      let querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        // Try direct document access where user.uid matches orgId
-        try {
-          const directDocRef = doc(db, "organizations", user.uid);
-          const directDocSnapshot = await getDoc(directDocRef);
-          if (directDocSnapshot.exists()) {
-            querySnapshot = { empty: false, docs: [directDocSnapshot] } as typeof querySnapshot;
-          }
-        } catch (directError) {
-          console.log("Direct document access failed:", directError);
-        }
-      }
-
-      if (querySnapshot.empty) {
-        toast.error("Error", {
-          description: "Organization not found. Please contact support."
-        });
-        return;
-      }
-
-      const orgId = querySnapshot.docs[0].id;
-      console.log("Syncing employee IDs for organization:", orgId);
-
-      // Get current status
-      const status = await getEmployeeIdStatus(orgId);
-      console.log("Employee ID status:", status);
-
-      if (status.status === 'healthy') {
-        toast.success("Success", {
-          description: "All employee IDs are already synchronized! No mismatches found."
-        });
-        return;
-      }
-
-      // Find and fix mismatches
-      const result = await syncEmployeeIds(orgId);
-      
-      if (result.errors.length > 0) {
-        toast.warning("Warning", {
-          description: `Fixed ${result.fixed} employee IDs, but encountered errors: ${result.errors.join(', ')}`
-        });
-      } else {
-        toast.success("Success", {
-          description: `Successfully synchronized ${result.fixed} employee IDs!`
-        });
-      }
-
-    } catch (error) {
-      console.error("Error syncing employee IDs:", error);
-      toast.error("Error", {
-        description: `Failed to sync employee IDs: ${error instanceof Error ? error.message : 'Unknown error'}`
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -834,15 +760,8 @@ export default function CompanySettingsPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={handleSyncEmployeeIds}
-              disabled={syncing || saving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md text-[14px] font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {syncing ? "Syncing..." : "Sync Employee IDs"}
-            </button>
-            <button
               onClick={handleSave}
-              disabled={saving || syncing}
+              disabled={saving}
               className="px-4 py-2 bg-[#f97316] text-white rounded-md text-[14px] font-medium hover:bg-[#ea580c] disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save Changes"}
