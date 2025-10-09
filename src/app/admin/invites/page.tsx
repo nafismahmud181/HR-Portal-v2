@@ -4,6 +4,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, collectionGroup, getDocs, onSnapshot, query, where } from "firebase/firestore";
 import Link from "next/link";
+import { toast } from "sonner";
 
 type InviteRow = { email: string; name?: string | null; department?: string | null; role?: string | null; createdAt?: string; status?: string; inviteUrl?: string };
 
@@ -133,7 +134,20 @@ export default function AdminInvitesPage() {
                     <div className="flex items-center gap-2">
                       <button
                         className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]"
-                        onClick={async () => { try { if (i.inviteUrl) await navigator.clipboard.writeText(i.inviteUrl); } catch {} }}
+                        onClick={async () => {
+                          try {
+                            if (i.inviteUrl) {
+                              await navigator.clipboard.writeText(i.inviteUrl);
+                              toast.success("Link Copied", {
+                                description: "Invite link has been copied to clipboard"
+                              });
+                            }
+                          } catch {
+                            toast.error("Copy Failed", {
+                              description: "Unable to copy link to clipboard"
+                            });
+                          }
+                        }}
                       >Copy Link</button>
                     </div>
                   </td>
@@ -165,7 +179,20 @@ export default function AdminInvitesPage() {
                 <div className="mt-3 flex items-center gap-2">
                   <button
                     className="rounded-md border border-[#d1d5db] px-2 py-1 text-[12px] hover:bg-[#f9fafb]"
-                    onClick={async () => { try { if (i.inviteUrl) await navigator.clipboard.writeText(i.inviteUrl); } catch {} }}
+                    onClick={async () => {
+                      try {
+                        if (i.inviteUrl) {
+                          await navigator.clipboard.writeText(i.inviteUrl);
+                          toast.success("Link Copied", {
+                            description: "Invite link has been copied to clipboard"
+                          });
+                        }
+                      } catch {
+                        toast.error("Copy Failed", {
+                          description: "Unable to copy link to clipboard"
+                        });
+                      }
+                    }}
                   >Copy Link</button>
                 </div>
               </div>
