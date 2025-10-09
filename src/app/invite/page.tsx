@@ -86,26 +86,33 @@ function InviteSetPasswordPageInner() {
       console.log("Invite data for employee creation:", invite);
       console.log("Using employeeId from invite:", invite?.employeeId || "fallback to uid:", uid);
       console.log("Salary from invite:", invite?.salary);
+      
+      const employeeData = {
+        employeeId: invite?.employeeId || uid, // Use assigned employeeId from invite, fallback to uid
+        name: invite?.name || normalized.split("@")[0],
+        email: normalized,
+        departmentId: invite?.departmentId || "",
+        department: invite?.departmentName || "",
+        roleId: invite?.roleId || "",
+        jobTitle: invite?.roleName || "",
+        manager: invite?.managerName || "",
+        managerId: invite?.managerId || "",
+        hireDate: invite?.startDate || serverTimestamp(),
+        status: "Active",
+        location: invite?.workLocation || "",
+        employeeType: invite?.employeeType || invite?.employmentStatus || "Full-time",
+        salary: invite?.salary || "",
+        onboardingCompleted: false,
+        createdAt: serverTimestamp(),
+      };
+      
+      console.log("📋 Employee data being saved:", JSON.stringify(employeeData, null, 2));
+      console.log("💰 SALARY VALUE BEING SAVED:", employeeData.salary);
+      
       try {
-        await setDoc(doc(db, "organizations", presetOrg, "employees", uid), {
-          employeeId: invite?.employeeId || uid, // Use assigned employeeId from invite, fallback to uid
-          name: invite?.name || normalized.split("@")[0],
-          email: normalized,
-          departmentId: invite?.departmentId || "",
-          department: invite?.departmentName || "",
-          roleId: invite?.roleId || "",
-          jobTitle: invite?.roleName || "",
-          manager: invite?.managerName || "",
-          managerId: invite?.managerId || "",
-          hireDate: invite?.startDate || serverTimestamp(),
-          status: "Active",
-          location: invite?.workLocation || "",
-          employeeType: invite?.employeeType || invite?.employmentStatus || "Full-time",
-          salary: invite?.salary || "",
-          onboardingCompleted: false,
-          createdAt: serverTimestamp(),
-        });
-        console.log("Employee profile created successfully");
+        await setDoc(doc(db, "organizations", presetOrg, "employees", uid), employeeData);
+        console.log("✅ Employee profile created successfully");
+        console.log("📍 Check Firebase at: organizations/" + presetOrg + "/employees/" + uid);
       } catch (empErr) {
         console.error("Error creating employee profile:", empErr);
         throw new Error(`Failed to create employee profile: ${empErr instanceof Error ? empErr.message : 'Unknown error'}`);

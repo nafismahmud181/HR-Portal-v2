@@ -519,9 +519,13 @@ export default function InviteEmployeePage() {
         inviteData.managerName = selectedManager?.name ?? null;
         inviteData.startDate = formData.startDate;
         inviteData.salary = formData.salary;
+        
+        console.log("💰 Salary being saved to invite:", formData.salary);
       }
 
+      console.log("📋 Creating invite with data:", JSON.stringify(inviteData, null, 2));
       await setDoc(doc(db, "organizations", orgId, "invites", inviteEmail), inviteData);
+      console.log("✅ Invite created at: organizations/" + orgId + "/invites/" + inviteEmail);
       
       // Step 2: Send email notification
       setCurrentStep("email");
