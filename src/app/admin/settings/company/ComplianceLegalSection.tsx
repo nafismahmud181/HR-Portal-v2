@@ -111,6 +111,13 @@ export default function ComplianceLegalSection({ formData, onNestedInputChange }
     }
   };
 
+  const handleDataPurposeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addDataPurpose();
+    }
+  };
+
   const removeDataPurpose = (index: number) => {
     const updatedPurposes = formData.complianceSettings.regulatoryCompliance.dataProtection.dataProcessingPurposes.filter((_: string, i: number) => i !== index);
     onNestedInputChange("complianceSettings", "regulatoryCompliance", {
@@ -133,6 +140,13 @@ export default function ComplianceLegalSection({ formData, onNestedInputChange }
         }
       });
       setNewDataRestriction("");
+    }
+  };
+
+  const handleDataRestrictionKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addDataRestriction();
     }
   };
 
@@ -473,24 +487,25 @@ export default function ComplianceLegalSection({ formData, onNestedInputChange }
               />
             </div>
             
-            <div>
-              <label className="block text-[14px] font-medium mb-2">Data Processing Purposes</label>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newDataPurpose}
-                    onChange={(e) => setNewDataPurpose(e.target.value)}
-                    placeholder="Add data processing purpose"
-                    className="flex-1 rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
-                  />
-                  <button
-                    onClick={addDataPurpose}
-                    className="px-3 py-2 bg-[#f97316] text-white rounded-md text-[14px] hover:bg-[#ea580c]"
-                  >
-                    Add
-                  </button>
-                </div>
+              <div>
+                <label className="block text-[14px] font-medium mb-2">Data Processing Purposes</label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newDataPurpose}
+                      onChange={(e) => setNewDataPurpose(e.target.value)}
+                      onKeyPress={handleDataPurposeKeyPress}
+                      placeholder="Add data processing purpose"
+                      className="flex-1 rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
+                    />
+                    <button
+                      onClick={addDataPurpose}
+                      className="px-3 py-2 bg-[#f97316] text-white rounded-md text-[14px] hover:bg-[#ea580c]"
+                    >
+                      Add
+                    </button>
+                  </div>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {formData.complianceSettings.regulatoryCompliance.dataProtection.dataProcessingPurposes.map((purpose: string, index: number) => (
                     <div key={index} className="flex items-center justify-between bg-[#f9fafb] px-3 py-2 rounded-md">
@@ -515,6 +530,7 @@ export default function ComplianceLegalSection({ formData, onNestedInputChange }
                     type="text"
                     value={newDataRestriction}
                     onChange={(e) => setNewDataRestriction(e.target.value)}
+                    onKeyPress={handleDataRestrictionKeyPress}
                     placeholder="Add data sharing restriction"
                     className="flex-1 rounded-md border border-[#d1d5db] px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                   />
